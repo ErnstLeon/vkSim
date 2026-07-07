@@ -33,26 +33,24 @@ struct BufferAllocationInfo
 class CommandPool
 {
 public:
-  CommandPool() = default;
-
   CommandPool(const CommandPool &) = delete;
   CommandPool(CommandPool &&) noexcept = default;
 
   auto operator=(const CommandPool &) -> CommandPool & = delete;
-  auto operator=(CommandPool &&) -> CommandPool & = default;
+  auto operator=(CommandPool &&) -> CommandPool & = delete;
 
   /** @brief Constructs a CommandPool with the specified create info.
    * @param createInfo Structure containing information for creating the
    * command pool.
    */
-  CommandPool(VulkanContext *context, const CommandPoolCreateInfo &createInfo);
+  CommandPool(VulkanContext &context, const CommandPoolCreateInfo &createInfo);
 
   /** @brief Allocates command buffers from the command pool.
    * @param allocInfo Structure containing information for allocating
    * command buffers.
    * @return Vector of allocated command buffers.
    */
-  auto allocateCommandBuffers(const BufferAllocationInfo &allocInfo)
+  auto allocateCommandBuffers(const BufferAllocationInfo &allocInfo) const
       -> std::vector<vk::raii::CommandBuffer>;
 
   /** @brief Returns the underlying Vulkan command pool.
@@ -69,6 +67,6 @@ public:
 
 private:
   vk::raii::CommandPool m_commandPool = nullptr;
-  VulkanContext *m_context = nullptr;
+  VulkanContext &m_context;
 };
 } // namespace vksim

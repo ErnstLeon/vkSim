@@ -1,0 +1,24 @@
+# floor.obj
+# 10x10 floor plane
+
+mtllib floor.mtl
+usemtl floor_material
+
+# Positions
+v -1.0 -1.0 0.0
+v  1.0 -1.0 0.0
+v  1.0 1.0  0.0
+v -1.0 1.0  0.0
+
+# Texture coordinates (tiled 5 times)
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+
+# Normals (up)
+vn 0.0 0.0 1.0
+
+# Faces
+f 1/1/1 2/2/1 3/3/1
+f 1/1/1 3/3/1 4/4/1

@@ -5,32 +5,36 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/context/VulkanContext.hpp"
-#include "vksim/core/swapchain/Swapchain.hpp"
+#include "vksim/core/render/Swapchain.hpp"
 
 namespace vksim
 {
 
-Swapchain::Swapchain(VulkanContext *context, const SwapchainCreateInfo &createInfo)
-    : m_context(context), m_createInfo(createInfo)
+Swapchain::Swapchain(VulkanContext &context) : m_context(context) {}
+
+auto Swapchain::create(const SwapchainCreateInfo &createInfo) -> void
 {
-  GLFWwindow *window = createInfo.window;
+  // Store the create info for potential future recreation
+  m_createInfo = createInfo;
+
+  const auto &window = m_context.getWindow();
 
   vk::SurfaceCapabilitiesKHR surfaceCapabilities =
-      context->getPhysicalDevice().getSurfaceCapabilitiesKHR(context->getSurface());
-  m_swapChainExtent = chooseSwapExtent(surfaceCapabilities, createInfo.window);
+      m_context.getDevice().physical().getSurfaceCapabilitiesKHR(m_context.getSurface());
+  m_swapChainExtent = chooseSwapExtent(surfaceCapabilities, window);
 
   uint32_t minImageCount = chooseSwapMinImageCount(surfaceCapabilities, createInfo.imageCount);
 
   std::vector<vk::SurfaceFormatKHR> availableFormats =
-      context->getPhysicalDevice().getSurfaceFormatsKHR(context->getSurface());
+      m_context.getDevice().physical().getSurfaceFormatsKHR(m_context.getSurface());
   m_swapChainSurfaceFormat =
       chooseSwapSurfaceFormat(availableFormats, createInfo.format, createInfo.colorSpace);
 
   std::vector<vk::PresentModeKHR> availablePresentModes =
-      context->getPhysicalDevice().getSurfacePresentModesKHR(context->getSurface());
+      m_context.getDevice().physical().getSurfacePresentModesKHR(m_context.getSurface());
 
   vk::SwapchainCreateInfoKHR swapChainCreateInfo{
-      .surface = context->getSurface(),
+      .surface = m_context.getSurface(),
       .minImageCount = minImageCount,
       .imageFormat = m_swapChainSurfaceFormat.format,
       .imageColorSpace = m_swapChainSurfaceFormat.colorSpace,
@@ -43,7 +47,7 @@ Swapchain::Swapchain(VulkanContext *context, const SwapchainCreateInfo &createIn
       .presentMode = chooseSwapPresentMode(availablePresentModes),
       .clipped = 1U};
 
-  m_swapChain = vk::raii::SwapchainKHR(context->getDevice(), swapChainCreateInfo);
+  m_swapChain = vk::raii::SwapchainKHR(m_context.getDevice().logical(), swapChainCreateInfo);
   m_swapChainImages = m_swapChain.getImages();
 
   // Create image views for each swapchain image
@@ -59,7 +63,7 @@ Swapchain::Swapchain(VulkanContext *context, const SwapchainCreateInfo &createIn
                              .levelCount = 1,
                              .baseArrayLayer = 0,
                              .layerCount = 1}};
-    m_swapChainImageViews.emplace_back(m_context->getDevice(), viewCreateInfo);
+    m_swapChainImageViews.emplace_back(m_context.getDevice().logical(), viewCreateInfo);
   }
 }
 
@@ -70,7 +74,7 @@ auto Swapchain::recreate() -> void
   m_swapChainImages.clear();
   m_swapChain = nullptr;
   // Recreate the swapchain with the same create info
-  *this = Swapchain(m_context, m_createInfo);
+  create(m_createInfo);
 }
 
 auto Swapchain::transitionLayout(uint32_t imageIndex, vk::ImageLayout old_layout,
@@ -123,7 +127,7 @@ auto Swapchain::transitionLayout(uint32_t imageIndex, vk::ImageLayout old_layout
 }
 
 auto Swapchain::chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &surfaceCapabilities,
-                                 GLFWwindow *window) -> vk::Extent2D
+                                 const vksim::Window &window) -> vk::Extent2D
 {
   if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
   {
@@ -131,7 +135,7 @@ auto Swapchain::chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &surfaceCapabi
   }
   int width;
   int height;
-  glfwGetFramebufferSize(window, &width, &height);
+  window.getFramebufferSize(width, height);
 
   return {.width = std::clamp<uint32_t>(width, surfaceCapabilities.minImageExtent.width,
                                         surfaceCapabilities.maxImageExtent.width),

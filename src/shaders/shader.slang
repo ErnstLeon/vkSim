@@ -10,9 +10,20 @@ struct UniformBuffer
   float4x4 view;
   float4x4 proj;
 };
-ConstantBuffer<UniformBuffer> ubo;
 
+struct PushConstants
+{
+  float4x4 model;
+};
+
+[[vk::binding(0, 0)]]
+ConstantBuffer<UniformBuffer> camera;
+
+[[vk::binding(0, 1)]]
 Sampler2D texture;
+
+[[vk::push_constant]]
+PushConstants pushConstants;
 
 struct VSOutput
 {
@@ -25,7 +36,8 @@ struct VSOutput
 VSOutput vertMain(VSInput input)
 {
   VSOutput output;
-  output.pos = mul(ubo.proj, mul(ubo.view, float4(input.inPos, 1.0)));
+  output.pos =
+      mul(camera.proj, mul(camera.view, mul(pushConstants.model, float4(input.inPos, 1.0))));
   output.fragColor = input.inColor;
   output.fragTexCoord = input.inTexCoord;
   return output;

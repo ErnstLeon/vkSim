@@ -20,19 +20,17 @@ class Texture : public Resource
 {
 public:
   /** @brief Constructs a new texture resource.
+   * @param device Reference to the Vulkan device for resource management.
    * @param identifier Unique identifier for the texture.
    * @param filePath Path to the texture image file.
-   * @param context Pointer to the Vulkan context for access to GPU resources.
    */
-  explicit Texture(const std::string &identifier, std::string filePath, VulkanContext *context);
-
-  Texture() = default;
+  explicit Texture(Device &device, const std::string &identifier, std::string filePath);
 
   Texture(const Texture &) = delete;
   Texture(Texture &&) noexcept = default;
 
   auto operator=(const Texture &) -> Texture & = delete;
-  auto operator=(Texture &&) -> Texture & = default;
+  auto operator=(Texture &&) -> Texture & = delete;
 
   ~Texture() override = default;
 
@@ -41,11 +39,6 @@ public:
    * @return True if the texture was successfully loaded, false otherwise.
    */
   auto doLoad(UploadContext &uploadContext) -> bool override;
-
-  /** @brief Unloads the texture resource, releasing GPU resources.
-   * @return True if the texture was successfully unloaded, false otherwise.
-   */
-  auto doUnload() -> bool override;
 
   /** @brief Returns the underlying Vulkan image.
    * @return Reference to the Vulkan image.
@@ -79,7 +72,7 @@ private:
   vk::raii::ImageView m_imageView = nullptr; // Shader-accessible view into the image
   vk::raii::Sampler m_sampler = nullptr;     // Sampling configuration (filtering, wrapping, etc.)
 
-  std::string m_filePath;   // Path to the texture image file
-  VulkanContext *m_context; // Pointer to the Vulkan context for resource management
+  std::string m_filePath; // Path to the texture image file
+  Device &m_device;       // Reference to the Vulkan device for resource management
 };
 } // namespace vksim

@@ -1,10 +1,11 @@
 #pragma once
 
-#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <expected>
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/device/Device.hpp"
 
 namespace vksim
 {
@@ -32,22 +33,36 @@ struct ImageViewCreateInfo
   vk::ImageAspectFlags aspectFlags;
 };
 
+/** @brief Image class encapsulates a Vulkan image and manages its
+ *        associated resources. It provides methods for creating, copying, and accessing the image
+ * and its memory. The Image class is responsible for allocating and freeing the image memory, as
+ * well as providing access to the underlying Vulkan image and device memory objects. It must be
+ * initialized with a vksim::Device reference to ensure proper resource management and lifetime
+ * control.
+ */
 class Image
 {
 public:
-  Image() = default;
   Image(const Image &) = delete;
   Image(Image &&) noexcept = default;
 
   auto operator=(const Image &) -> Image & = delete;
-  auto operator=(Image &&) -> Image & = default;
+  auto operator=(Image &&) -> Image & = delete;
 
-  /** @brief Constructs an Image with the specified create info.
+  /** @brief Initializes an Image with the specified create info.
    * @param device The Vulkan device to use for image creation.
+   */
+  Image(vksim::Device &device);
+
+  /** @brief Creates a Vulkan image with the specified create info. This method allocates the
+   * image and its associated memory, and binds them together. It must be called after the Image
+   * object is constructed and before any operations are performed on the image. The createInfo
+   * parameter specifies the width, height, number of samples, format, tiling, usage, and memory
+   * properties of the image to be created.
    * @param createInfo Structure containing information for creating the
    * image.
    */
-  Image(VulkanContext *context, const ImageCreateInfo &createInfo);
+  auto create(const ImageCreateInfo &createInfo) -> void;
 
   /** @brief Returns the underlying Vulkan image.
    * @return Reference to the Vulkan image.
@@ -92,41 +107,14 @@ public:
                         vk::PipelineStageFlags2 dst_stage_mask, vk::ImageAspectFlagBits aspect,
                         vk::raii::CommandBuffer &commandBuffer) -> void;
 
-  /** @brief Finds a suitable depth format for the image.
-   * @param context The Vulkan context.
-   * @return The found depth format.
-   */
-  static auto findDepthFormat(VulkanContext *context) -> std::expected<vk::Format, std::string>;
-
 private:
-  /** @brief Finds a suitable memory type based on the filter and
-   * properties.
-   * @param context The Vulkan context.
-   * @param typeFilter The type of memory to filter.
-   * @param properties The required memory properties.
-   * @return The index of the found memory type.
-   */
-  static auto findMemoryType(VulkanContext *context, uint32_t typeFilter,
-                             vk::MemoryPropertyFlags properties) -> uint32_t;
-
-  /** @brief Finds a supported format from a list of candidates.
-   * @param context The Vulkan context.
-   * @param candidates The list of candidate formats to check.
-   * @param tiling The desired image tiling.
-   * @param features The required format features.
-   * @return The first supported format found in the candidates.
-   */
-  static auto findSupportedFormat(VulkanContext *context, const std::vector<vk::Format> &candidates,
-                                  vk::ImageTiling tiling, vk::FormatFeatureFlags features)
-      -> std::expected<vk::Format, std::string>;
-
   vk::raii::Image m_image = nullptr;
   vk::raii::DeviceMemory m_imageMemory = nullptr;
 
   uint32_t m_width{};
   uint32_t m_height{};
 
-  VulkanContext *m_context = nullptr;
+  vksim::Device &m_device;
 };
 
 } // namespace vksim

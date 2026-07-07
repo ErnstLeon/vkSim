@@ -44,8 +44,9 @@ auto Vertex::getAttributeDescriptions() -> std::array<vk::VertexInputAttributeDe
             .offset = offsetof(Vertex, uv)}}};
 }
 
-Mesh::Mesh(const std::string &identifier, std::string filePath, VulkanContext *context)
-    : Resource(identifier), m_filePath(std::move(filePath)), m_context(context)
+Mesh::Mesh(Device &device, const std::string &identifier, std::string filePath)
+    : Resource(identifier), m_filePath(std::move(filePath)), m_device(device),
+      m_vertexBuffer(device), m_indexBuffer(device)
 {
 }
 
@@ -56,16 +57,6 @@ auto Mesh::doLoad(UploadContext &uploadContext) -> bool
   spdlog::info("Mesh {} loaded successfully with {} vertices and {} indices", GetId(),
                vertices.size(), indices.size());
 
-  return true;
-}
-
-auto Mesh::doUnload() -> bool
-{
-  m_vertexBuffer = Buffer();
-  m_indexBuffer = Buffer();
-
-  vertices.clear();
-  indices.clear();
   return true;
 }
 
@@ -121,8 +112,11 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
                     attrib.vertices[(3 * index.vertex_index) + 1],
                     attrib.vertices[(3 * index.vertex_index) + 2]};
 
-      vertex.uv = {attrib.texcoords[(2 * index.texcoord_index) + 0],
-                   1.0F - attrib.texcoords[(2 * index.texcoord_index) + 1]};
+      if (index.texcoord_index >= 0)
+      {
+        vertex.uv = {attrib.texcoords[(2 * index.texcoord_index) + 0],
+                     1.0F - attrib.texcoords[(2 * index.texcoord_index) + 1]};
+      }
 
       vertex.color = {1.0F, 1.0F, 1.0F};
 
@@ -140,16 +134,21 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
 
   // Create staging buffers for vertex and index data
   vk::DeviceSize vertexBufferSize = sizeof(vertices[0]) * vertices.size();
-  auto stagingVertexBuffer =
-      Buffer(m_context, BufferCreateInfo{.size = vertexBufferSize,
-                                         .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                       vk::MemoryPropertyFlagBits::eHostCoherent});
-  auto stagingIndexBuffer =
-      Buffer(m_context, BufferCreateInfo{.size = sizeof(indices[0]) * indices.size(),
-                                         .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                       vk::MemoryPropertyFlagBits::eHostCoherent});
+  vk::DeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
+
+  auto stagingVertexBuffer = Buffer(m_device);
+  auto stagingIndexBuffer = Buffer(m_device);
+
+  stagingVertexBuffer.create(
+      BufferCreateInfo{.size = vertexBufferSize,
+                       .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                       .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                     vk::MemoryPropertyFlagBits::eHostCoherent});
+  stagingIndexBuffer.create(
+      BufferCreateInfo{.size = indexBufferSize,
+                       .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                       .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                     vk::MemoryPropertyFlagBits::eHostCoherent});
 
   // Map the staging buffers and copy the vertex and index data into them
   auto *stagingVertexBufferMemory =
@@ -164,17 +163,15 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
   stagingIndexBuffer.getVkBufferMemory().unmapMemory();
 
   // Create the vertex and index buffers on the GPU with device-local memory
-  m_vertexBuffer =
-      Buffer(m_context, BufferCreateInfo{.size = vertexBufferSize,
+  m_vertexBuffer.create(BufferCreateInfo{.size = vertexBufferSize,
                                          .usage = vk::BufferUsageFlagBits::eVertexBuffer |
                                                   vk::BufferUsageFlagBits::eTransferDst,
                                          .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
 
-  m_indexBuffer =
-      Buffer(m_context, BufferCreateInfo{.size = sizeof(indices[0]) * indices.size(),
-                                         .usage = vk::BufferUsageFlagBits::eIndexBuffer |
-                                                  vk::BufferUsageFlagBits::eTransferDst,
-                                         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
+  m_indexBuffer.create(BufferCreateInfo{.size = indexBufferSize,
+                                        .usage = vk::BufferUsageFlagBits::eIndexBuffer |
+                                                 vk::BufferUsageFlagBits::eTransferDst,
+                                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
 
   // Copy the data from the staging buffers to the GPU buffers using the provided command buffer
   m_vertexBuffer.copyFromBuffer(stagingVertexBuffer, vertexBufferSize,

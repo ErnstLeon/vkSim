@@ -7,40 +7,24 @@
 namespace vksim
 {
 
-Buffer::Buffer(VulkanContext *context, const BufferCreateInfo &createInfo) : m_context(context)
+Buffer::Buffer(vksim::Device &device) : m_device(device) {};
+
+void Buffer::create(const BufferCreateInfo &createInfo)
 {
   vk::BufferCreateInfo bufferInfo{.size = createInfo.size,
                                   .usage = createInfo.usage,
                                   .sharingMode = vk::SharingMode::eExclusive};
 
-  m_buffer = vk::raii::Buffer(m_context->getDevice(), bufferInfo);
+  m_buffer = vk::raii::Buffer(m_device.logical(), bufferInfo);
   vk::MemoryRequirements memRequirements = m_buffer.getMemoryRequirements();
   vk::MemoryAllocateInfo allocInfo{
       .allocationSize = memRequirements.size,
       .memoryTypeIndex =
-          findMemoryType(m_context, memRequirements.memoryTypeBits, createInfo.properties)};
+          m_device.findMemoryType(memRequirements.memoryTypeBits, createInfo.properties)
+              .value_or(0)};
 
-  m_bufferMemory = vk::raii::DeviceMemory(m_context->getDevice(), allocInfo);
+  m_bufferMemory = vk::raii::DeviceMemory(m_device.logical(), allocInfo);
   m_buffer.bindMemory(*m_bufferMemory, 0);
-}
-
-auto Buffer::findMemoryType(VulkanContext *context, uint32_t typeFilter,
-                            vk::MemoryPropertyFlags properties) -> uint32_t
-{
-  vk::PhysicalDeviceMemoryProperties memProperties =
-      context->getPhysicalDevice().getMemoryProperties();
-
-  for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
-  {
-    if ((typeFilter & (1U << i)) != 0U &&
-        (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-    {
-      return i;
-    }
-  }
-
-  spdlog::error("Failed to find suitable memory type!");
-  std::abort();
 }
 
 auto Buffer::copyFromBuffer(Buffer &buffer, uint32_t size,

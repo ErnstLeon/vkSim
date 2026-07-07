@@ -9,6 +9,7 @@
 #include "vector"
 
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/window/Window.hpp"
 
 namespace vksim
 {
@@ -18,8 +19,6 @@ namespace vksim
  */
 struct SwapchainCreateInfo
 {
-  GLFWwindow *window;
-
   vk::Format format;
   vk::ColorSpaceKHR colorSpace;
   uint32_t imageCount{3};
@@ -37,20 +36,25 @@ struct SwapchainCreateInfo
 class Swapchain
 {
 public:
-  Swapchain() = default;
   /**
-   * @brief Constructs a Swapchain with the specified Vulkan context and
-   * GLFW window. It initializes the swapchain, retrieves its images, and
-   * creates image views for each swapchain image.
-   * @param createInfo Reference to the SwapchainCreateInfo structure.
+   * @brief Initializes a Swapchain with the specified Vulkan context.
+   * @param context Reference to the VulkanContext object.
    */
-  Swapchain(VulkanContext *context, const SwapchainCreateInfo &createInfo);
+  Swapchain(VulkanContext &context);
 
   Swapchain(const Swapchain &) = delete;
   auto operator=(const Swapchain &) noexcept -> Swapchain & = delete;
 
   Swapchain(Swapchain &&) noexcept = default;
-  auto operator=(Swapchain &&) noexcept -> Swapchain & = default;
+  auto operator=(Swapchain &&) noexcept -> Swapchain & = delete;
+
+  /**
+   * @brief Creates the Vulkan swapchain with the specified create info. This method initializes the
+   * swapchain, retrieves the swapchain images, and creates image views for each image.
+   * @param createInfo Structure containing information for creating the
+   * swapchain.
+   */
+  auto create(const SwapchainCreateInfo &createInfo) -> void;
 
   /**
    * @brief Recreates the swapchain, typically called when the window is
@@ -92,11 +96,11 @@ private:
    * capabilities and the GLFW window size.
    * @param surfaceCapabilities The surface capabilities of the Vulkan
    * physical device.
-   * @param window Pointer to the GLFW window.
+   * @param window Reference to the vksim::Window object.
    * @return The chosen swapchain extent as a vk::Extent2D.
    */
   static auto chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &surfaceCapabilities,
-                               GLFWwindow *window) -> vk::Extent2D;
+                               const vksim::Window &window) -> vk::Extent2D;
 
   /**
    * @brief Chooses the minimum number of images for the swapchain based on
@@ -133,8 +137,8 @@ private:
   std::vector<vk::raii::ImageView> m_swapChainImageViews;
   vk::SurfaceFormatKHR m_swapChainSurfaceFormat{};
   vk::Extent2D m_swapChainExtent{};
-  SwapchainCreateInfo m_createInfo{};
 
-  VulkanContext *m_context = nullptr;
+  VulkanContext &m_context;
+  SwapchainCreateInfo m_createInfo{};
 };
 } // namespace vksim

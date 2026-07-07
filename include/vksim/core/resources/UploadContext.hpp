@@ -22,13 +22,13 @@ public:
   /** @brief Constructs an UploadContext with a VulkanContext.
    *  @param context The VulkanContext to use for uploads.
    */
-  explicit UploadContext(VulkanContext *context);
+  explicit UploadContext(VulkanContext &context);
 
   UploadContext(const UploadContext &) = delete;
   UploadContext(UploadContext &&) noexcept = default;
 
   auto operator=(const UploadContext &) -> UploadContext & = delete;
-  auto operator=(UploadContext &&) -> UploadContext & = default;
+  auto operator=(UploadContext &&) -> UploadContext & = delete;
 
   /** @brief Begins the upload process by allocating a command buffer and starting the recording.
    */
@@ -52,7 +52,7 @@ public:
   auto addStagingBuffer(Buffer &&buffer) -> void { m_stagingBuffers.push_back(std::move(buffer)); }
 
 private:
-  VulkanContext *m_context = nullptr;
+  VulkanContext &m_context;
   vk::raii::CommandBuffer m_commandBuffer = nullptr;
   std::vector<Buffer> m_stagingBuffers;
 };

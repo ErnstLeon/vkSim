@@ -19,8 +19,9 @@ constexpr std::size_t uniformAlignment = 16;
 namespace vksim
 {
 
-/** @brief Structure to hold the camera's uniform buffer object data, including view and projection
- * matrices. */
+/** @brief Structure to hold the camera's view and projection matrices for uniform buffer usage.
+ * @note The matrices are aligned to 16 bytes for GPU compatibility. The GPU buffers are allocated
+ * in the renderer and updated each frame with the camera's current view and projection matrices. */
 struct CameraUniformBufferObject
 {
   alignas(uniformAlignment) glm::mat4 view;
@@ -51,20 +52,14 @@ public:
   auto operator=(const Camera &) -> Camera & = delete;
   auto operator=(Camera &&) -> Camera & = default;
 
-  Camera(VulkanContext *context, uint32_t framesInFlight = 1);
-
-  /** @brief Updates only the provided camera parameters.
-   * Example: camera.update({.center = glm::vec3(0.0F, 0.0F, 0.0F)});
+  /** @brief Updates the camera's parameters and recalculates the view and projection matrices.
+   * @param params Structure containing the parameters to update. Only the provided parameters will
+   * be updated; others will remain unchanged.
+   * @note The view and projection matrices are recalculated based on the updated parameters. The
+   * matrices are transposed to match Vulkan's column-major order. Example:
+   * camera.transform({.center = glm::vec3(0.0F, 0.0F, 0.0F)});
    */
-  auto update(const UpdateParams &params, uint32_t frameIndex = 0) -> void;
-
-  /** @brief Returns the uniform buffer associated with the camera.
-   * @return Reference to the Vulkan buffer containing the camera's uniform data.
-   */
-  [[nodiscard]] auto getUniformBuffer(uint32_t frameIndex = 0) const -> const vk::raii::Buffer &
-  {
-    return m_uniformBuffers[frameIndex].getVkBuffer();
-  }
+  auto transform(const UpdateParams &params) -> void;
 
   /** @brief Returns the camera's position in world space.
    * @return The camera's position vector.
@@ -109,12 +104,6 @@ public:
   [[nodiscard]] auto getProjectionMatrix() const -> const glm::mat4 & { return m_projectionMatrix; }
 
 private:
-  VulkanContext *m_context = nullptr;
-  std::vector<Buffer> m_uniformBuffers;
-  std::vector<void *> m_uniformBuffersMapped;
-
-  uint32_t m_framesInFlight = 1;
-
   glm::mat4 m_viewMatrix = glm::mat4(1.0F);
   glm::mat4 m_projectionMatrix = glm::mat4(1.0F);
   uint32_t m_width = 0;

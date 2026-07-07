@@ -17,8 +17,9 @@
 namespace vksim
 {
 
-Texture::Texture(const std::string &identifier, std::string filePath, VulkanContext *context)
-    : Resource(identifier), m_filePath(std::move(filePath)), m_context(context)
+Texture::Texture(Device &device, const std::string &identifier, std::string filePath)
+    : Resource(identifier), m_filePath(std::move(filePath)), m_device(device), m_image(device),
+      m_imageView(nullptr), m_sampler(nullptr)
 {
 }
 
@@ -49,12 +50,12 @@ auto Texture::loadFromFile(UploadContext &uploadContext) -> void
     std::abort();
   }
 
-  // Create a staging buffer to hold the pixel data
-  auto stagingBuffer =
-      Buffer(m_context, BufferCreateInfo{.size = imageSize,
-                                         .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                       vk::MemoryPropertyFlagBits::eHostCoherent});
+  // Create a temporary staging buffer to hold the pixel data
+  auto stagingBuffer = Buffer(m_device);
+  stagingBuffer.create(BufferCreateInfo{.size = imageSize,
+                                        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                                      vk::MemoryPropertyFlagBits::eHostCoherent});
 
   auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, imageSize);
   std::memcpy(stagingBufferMemory, pixels, static_cast<size_t>(imageSize));
@@ -62,15 +63,14 @@ auto Texture::loadFromFile(UploadContext &uploadContext) -> void
   stbi_image_free(pixels);
 
   // Create the Vulkan image with the appropriate properties
-  m_image =
-      Image(m_context, ImageCreateInfo{.width = static_cast<uint32_t>(texWidth),
-                                       .height = static_cast<uint32_t>(texHeight),
-                                       .numSamples = vk::SampleCountFlagBits::e1,
-                                       .format = vk::Format::eR8G8B8A8Srgb,
-                                       .tiling = vk::ImageTiling::eOptimal,
-                                       .usage = vk::ImageUsageFlagBits::eTransferDst |
-                                                vk::ImageUsageFlagBits::eSampled,
-                                       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
+  m_image.create(ImageCreateInfo{.width = static_cast<uint32_t>(texWidth),
+                                 .height = static_cast<uint32_t>(texHeight),
+                                 .numSamples = vk::SampleCountFlagBits::e1,
+                                 .format = vk::Format::eR8G8B8A8Srgb,
+                                 .tiling = vk::ImageTiling::eOptimal,
+                                 .usage = vk::ImageUsageFlagBits::eTransferDst |
+                                          vk::ImageUsageFlagBits::eSampled,
+                                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
 
   // Transition the image layout to be optimal for transfer destination
   m_image.transitionLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, {},
@@ -102,7 +102,7 @@ auto Texture::createImageView() -> void
 
 auto Texture::createSampler() -> void
 {
-  vk::PhysicalDeviceProperties properties = m_context->getPhysicalDevice().getProperties();
+  vk::PhysicalDeviceProperties properties = m_device.physical().getProperties();
   vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
                                     .minFilter = vk::Filter::eLinear,
                                     .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -112,14 +112,7 @@ auto Texture::createSampler() -> void
                                     .anisotropyEnable = vk::True,
                                     .maxAnisotropy = properties.limits.maxSamplerAnisotropy};
 
-  m_sampler = vk::raii::Sampler(m_context->getDevice(), samplerInfo);
+  m_sampler = vk::raii::Sampler(m_device.logical(), samplerInfo);
 }
 
-auto Texture::doUnload() -> bool
-{
-  m_image = {};
-  m_imageView = nullptr;
-  m_sampler = nullptr;
-  return true;
-}
 } // namespace vksim

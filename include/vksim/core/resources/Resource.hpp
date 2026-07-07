@@ -42,14 +42,7 @@ public:
     return loaded;
   }
 
-  void Unload()
-  {
-    doUnload();
-    loaded = false;
-  }
-
 protected:
   virtual auto doLoad(UploadContext &uploadContext) -> bool = 0;
-  virtual auto doUnload() -> bool = 0;
 };
 } // namespace vksim
