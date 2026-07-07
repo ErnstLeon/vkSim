@@ -1,3 +1,4 @@
+#include "glm/ext/matrix_transform.hpp"
 #include <utility>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -9,43 +10,48 @@
 namespace vksim
 {
 
-auto Transform::modelMatrix() const -> glm::mat4
+SceneObject::SceneObject(ResourceManager &resourceManager) : m_resourceManager(resourceManager) {}
+
+auto SceneObject::setMesh(const std::string &meshId) -> void { m_meshId = meshId; }
+
+auto SceneObject::getMeshId() const -> const std::string & { return m_meshId; }
+
+auto SceneObject::getMesh() const -> std::expected<Mesh *, std::string>
 {
-  glm::mat4 model(1.0F);
-  model = glm::translate(model, position);
-  model = glm::rotate(model, rotation.x, glm::vec3(1.0F, 0.0F, 0.0F));
-  model = glm::rotate(model, rotation.y, glm::vec3(0.0F, 1.0F, 0.0F));
-  model = glm::rotate(model, rotation.z, glm::vec3(0.0F, 0.0F, 1.0F));
-  model = glm::scale(model, scale);
-  return model;
+
+  if (m_meshId.empty())
+  {
+    return std::unexpected("Mesh id is not set for scene object");
+  }
+
+  return m_resourceManager.GetResource<Mesh>(m_meshId);
 }
 
-SceneObject::SceneObject(std::shared_ptr<Mesh> mesh) : m_mesh(std::move(mesh)) {}
+auto SceneObject::setTexture(const std::string &textureId) -> void { m_textureId = textureId; }
 
-auto SceneObject::setMesh(std::shared_ptr<Mesh> mesh) -> void { m_mesh = std::move(mesh); }
+auto SceneObject::getTextureId() const -> const std::string & { return m_textureId; }
 
-auto SceneObject::getMesh() const -> const std::shared_ptr<Mesh> & { return m_mesh; }
-
-auto SceneObject::setTextures(std::vector<std::shared_ptr<Texture>> textures) -> void
+auto SceneObject::getTexture() const -> std::expected<Texture *, std::string>
 {
-  m_textures = std::move(textures);
+  return m_resourceManager.GetResource<Texture>(m_textureId);
 }
 
-auto SceneObject::addTexture(std::shared_ptr<Texture> texture) -> void
+auto SceneObject::transform(const Transform &transform) -> void
 {
-  m_textures.push_back(std::move(texture));
+  auto model = glm::mat4(1.0F);
+  model = glm::scale(model, transform.scale);
+  model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0F, 0.0F, 0.0F));
+  model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0F, 1.0F, 0.0F));
+  model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0F, 0.0F, 1.0F));
+  model = glm::translate(model, transform.position);
+
+  // Transpose the model matrix to match Vulkan's column-major order
+  model = glm::transpose(model);
+
+  m_modelMatrix = model;
 }
 
-auto SceneObject::getTextures() const -> const std::vector<std::shared_ptr<Texture>> &
-{
-  return m_textures;
-}
-
-auto SceneObject::setTransform(const Transform &transform) -> void { m_transform = transform; }
-
-auto SceneObject::getTransform() const -> const Transform & { return m_transform; }
-
-auto SceneObject::getTransform() -> Transform & { return m_transform; }
+auto SceneObject::getModelMatrix() const -> const glm::mat4 & { return m_modelMatrix; }
 
 auto SceneObject::setVisible(bool visible) -> void { m_visible = visible; }
 

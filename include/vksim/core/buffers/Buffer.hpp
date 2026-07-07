@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/device/Device.hpp"
 
 namespace vksim
 {
@@ -18,24 +19,33 @@ struct BufferCreateInfo
 };
 
 /** @brief Buffer class encapsulates a Vulkan buffer and manages its
- *        associated resources.
+ *        associated resources. It provides methods for creating, copying, and accessing the buffer
+ * and its memory. The Buffer class is responsible for allocating and freeing the buffer memory, as
+ * well as providing access to the underlying Vulkan buffer and device memory objects. It must be
+ * initialized with a vksim::Device reference to ensure proper resource management and lifetime
+ * control.
  */
 class Buffer
 {
 public:
-  Buffer() = default;
   Buffer(const Buffer &) = delete;
   Buffer(Buffer &&) noexcept = default;
 
   auto operator=(const Buffer &) -> Buffer & = delete;
-  auto operator=(Buffer &&) -> Buffer & = default;
+  auto operator=(Buffer &&) -> Buffer & = delete;
 
-  /** @brief Constructs a Buffer with the specified create info.
-   * @param context Pointer to the Vulkan context for access to GPU resources.
-   * @param createInfo Structure containing information for creating the
-   * buffer.
+  /** @brief Initializes a Buffer with the specified create info.
+   * @param device Reference to the Vulkan device for access to GPU resources.
    */
-  Buffer(VulkanContext *context, const BufferCreateInfo &createInfo);
+  Buffer(vksim::Device &device);
+
+  /** @brief Creates a Vulkan buffer with the specified create info. This method allocates the
+   * buffer and its associated memory, and binds them together. It must be called after the Buffer
+   * object is constructed and before any operations are performed on the buffer. The createInfo
+   * parameter specifies the size, usage, and memory properties of the buffer to be created.
+   * @param createInfo Structure containing buffer creation parameters.
+   */
+  auto create(const BufferCreateInfo &createInfo) -> void;
 
   /** @brief Returns the underlying Vulkan buffer.
    * @return Reference to the Vulkan buffer.
@@ -56,18 +66,9 @@ public:
       -> void;
 
 private:
-  /** @brief Finds a suitable memory type for the buffer.
-   * @param context The Vulkan context.
-   * @param typeFilter A bitmask specifying the acceptable memory types.
-   * @param properties The desired memory properties.
-   * @return The index of the suitable memory type.
-   */
-  static auto findMemoryType(VulkanContext *context, uint32_t typeFilter,
-                             vk::MemoryPropertyFlags properties) -> uint32_t;
-
   vk::raii::Buffer m_buffer = nullptr;
   vk::raii::DeviceMemory m_bufferMemory = nullptr;
-  VulkanContext *m_context = nullptr;
+  vksim::Device &m_device;
 };
 
 } // namespace vksim

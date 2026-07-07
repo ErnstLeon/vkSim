@@ -8,9 +8,7 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/resources/Resource.hpp"
-#include "vksim/core/resources/ResourceManager.hpp"
 #include "vksim/core/resources/UploadContext.hpp"
-#include "vksim/utility/Logging.hpp"
 
 namespace vksim
 {
@@ -18,14 +16,6 @@ namespace vksim
  */
 class ResourceManager
 {
-private:
-  /** @brief Maps resource types to their instances. Two-level mapping:
-   * first level maps resource type, second level maps resource IDs to
-   * their instances.
-   */
-  std::unordered_map<std::type_index, std::unordered_map<std::string, std::unique_ptr<Resource>>>
-      resources;
-
 public:
   /** @brief Loads a resource of the specified type and ID. If the resource
    * is already loaded, it returns the existing instance.
@@ -36,7 +26,7 @@ public:
    * @return Pointer to the loaded resource instance.
    */
   template <typename T>
-  auto Load(const std::string &resourceId, const std::string &filepath, VulkanContext *context,
+  auto Load(const std::string &resourceId, const std::string &filepath, VulkanContext &context,
             UploadContext &uploadContext) -> std::expected<T *, std::string>
   {
     auto &typeResources = resources[typeid(T)];
@@ -46,7 +36,7 @@ public:
       return std::expected<T *, std::string>(static_cast<T *>(iter->second.get()));
     }
 
-    auto resource = std::make_unique<T>(resourceId, filepath, context);
+    auto resource = std::make_unique<T>(context.getDevice(), resourceId, filepath);
     if (!resource->Load(uploadContext))
     {
       return std::expected<T *, std::string>(std::unexpect,
@@ -65,9 +55,13 @@ public:
   template <typename T>
   auto GetResource(const std::string &resourceId) -> std::expected<T *, std::string>
   {
-    // Access type-specific resource container using compile-time type
-    // information
-    auto &typeResources = resources[std::type_index(typeid(T))];
+    auto resourceIt = resources.find(std::type_index(typeid(T)));
+    if (resourceIt == resources.end())
+    {
+      return std::expected<T *, std::string>(std::unexpect, "Resource not found: " + resourceId);
+    }
+
+    auto &typeResources = resourceIt->second;
     auto iter = typeResources.find(resourceId);
 
     if (iter != typeResources.end())
@@ -89,7 +83,12 @@ public:
   {
     // Efficient existence check without resource access overhead
     auto resourceIt = resources.find(std::type_index(typeid(T)));
-    return resourceIt != resources.end();
+    if (resourceIt == resources.end())
+    {
+      return false;
+    }
+
+    return resourceIt->second.contains(resourceId);
   }
 
   /** @brief Releases a resource of the specified type and ID. If the
@@ -99,34 +98,26 @@ public:
    */
   template <typename T> void Release(const std::string &resourceId)
   {
-    auto &typeResources = resources[std::type_index(typeid(T))];
-    auto iter = typeResources.find(resourceId);
-    if (iter != typeResources.end())
+    auto resourceIt = resources.find(std::type_index(typeid(T)));
+    if (resourceIt == resources.end())
     {
-      auto resourceIt = typeResources.find(resourceId);
-      if (resourceIt != typeResources.end())
-      {
-        resourceIt->second->Unload();    // Allow resource to clean up its data
-        typeResources.erase(resourceIt); // Remove from cache
-      }
+      return;
+    }
+
+    auto &typeResources = resourceIt->second;
+    auto typeResourceIt = typeResources.find(resourceId);
+    if (typeResourceIt != typeResources.end())
+    {
+      typeResources.erase(typeResourceIt); // Remove from cache
     }
   }
 
-  /** @brief Unloads all resources managed by the ResourceManager. This is
-   * typically called during system shutdown or when a major state change
-   * occurs.
+private:
+  /** @brief Maps resource types to their instances. Two-level mapping:
+   * first level maps resource type, second level maps resource IDs to
+   * their instances.
    */
-  void UnloadAll()
-  {
-    // Cleanup method for system shutdown
-    for (auto &[type, typeResources] : resources)
-    {
-      for (auto &[identifier, resource] : typeResources)
-      {
-        resource->Unload(); // Ensure all resources clean up properly
-      }
-      typeResources.clear(); // Clear type-specific containers
-    }
-  }
+  std::unordered_map<std::type_index, std::unordered_map<std::string, std::unique_ptr<Resource>>>
+      resources;
 };
 } // namespace vksim

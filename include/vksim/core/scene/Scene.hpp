@@ -1,10 +1,10 @@
 #pragma once
 
-#include <memory>
 #include <vector>
 
-#include "vksim/core/camera/Camera.hpp"
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/resources/ResourceManager.hpp"
+#include "vksim/core/scene/Camera.hpp"
 #include "vksim/core/scene/SceneObject.hpp"
 
 namespace vksim
@@ -17,8 +17,7 @@ namespace vksim
 class Scene
 {
 public:
-  Scene() = default;
-  explicit Scene(VulkanContext *context);
+  Scene(VulkanContext &context, ResourceManager &resourceManager);
 
   /** @brief Adds a camera to the scene. If a camera already exists, it will be replaced.
    * @return Reference to the newly added camera.
@@ -42,18 +41,22 @@ public:
   /** @brief Gets the list of scene objects in the scene.
    * @return Reference to the vector of scene objects.
    */
-  [[nodiscard]] auto getObjects() const -> const std::vector<SceneObject> &;
+  [[nodiscard]] auto getObjects() const -> const std::vector<std::unique_ptr<SceneObject>> &;
 
   /** @brief Gets the list of scene objects in the scene.
    * @return Reference to the vector of scene objects.
    */
-  [[nodiscard]] auto getObjects() -> std::vector<SceneObject> &;
+  [[nodiscard]] auto getObjects() -> std::vector<std::unique_ptr<SceneObject>> &;
 
 private:
-  Camera m_camera;
-  std::vector<SceneObject> m_objects;
+  // The scene owns the scene objects and camera, ensuring proper memory management.
+  // Use std::unique_ptr for scene objects to be able to return stable references when adding new
+  // objects.
+  std::vector<std::unique_ptr<SceneObject>> m_objects;
+  std::optional<Camera> m_camera;
 
-  VulkanContext *m_context = nullptr;
+  VulkanContext &m_context;
+  ResourceManager &m_resourceManager;
 };
 
 } // namespace vksim

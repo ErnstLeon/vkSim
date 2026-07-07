@@ -63,19 +63,17 @@ class Mesh : public Resource
 {
 public:
   /** @brief Constructs a new mesh resource.
+   * @param device Reference to the Vulkan device for resource management.
    * @param identifier Unique identifier for the mesh.
    * @param filePath Path to the mesh file.
-   * @param context Pointer to the Vulkan context for access to GPU resources.
    */
-  explicit Mesh(const std::string &identifier, std::string filePath, VulkanContext *context);
-
-  Mesh() = default;
+  explicit Mesh(Device &device, const std::string &identifier, std::string filePath);
 
   Mesh(const Mesh &) = delete;
   Mesh(Mesh &&) noexcept = default;
 
   auto operator=(const Mesh &) -> Mesh & = delete;
-  auto operator=(Mesh &&) -> Mesh & = default;
+  auto operator=(Mesh &&) -> Mesh & = delete;
 
   ~Mesh() override = default;
 
@@ -84,11 +82,6 @@ public:
    * @return True if the mesh was successfully loaded, false otherwise.
    */
   auto doLoad(UploadContext &uploadContext) -> bool override;
-
-  /** @brief Unloads the mesh resource, releasing GPU resources.
-   * @return True if the mesh was successfully unloaded, false otherwise.
-   */
-  auto doUnload() -> bool override;
 
   /** @brief Returns the vertex buffer for the mesh.
    * @return Reference to the vertex buffer.
@@ -133,7 +126,7 @@ private:
   std::vector<Vertex> vertices;  // Vertices of the mesh
   std::vector<uint32_t> indices; // Indices of the mesh
 
-  std::string m_filePath;   // Path to the mesh file
-  VulkanContext *m_context; // Pointer to the Vulkan context for resource management
+  std::string m_filePath; // Path to the mesh file
+  Device &m_device;       // Reference to the Vulkan device for resource management
 };
 } // namespace vksim

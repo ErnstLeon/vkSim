@@ -7,6 +7,8 @@
 
 #include "vksim/core/context/DeviceSelector.hpp"
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/device/Device.hpp"
+#include "vksim/core/window/Window.hpp"
 #include "vksim/utility/Error.hpp"
 #include "vksim/utility/Logging.hpp"
 
@@ -19,7 +21,7 @@ constexpr bool enableValidationLayers = false;
 namespace vksim
 {
 
-VulkanContext::VulkanContext(GLFWwindow *window, ContextCreateInfo createInfo)
+VulkanContext::VulkanContext(vksim::Window &window, ContextCreateInfo createInfo)
     : m_createInfo(std::move(createInfo)), m_window(window)
 {
 }
@@ -37,7 +39,7 @@ auto VulkanContext::build() -> void
   auto deviceSelection =
       DeviceSelector::pickPhysicalDevice(m_instance, m_surface, m_createInfo.device.extensions,
                                          m_createInfo.device.features, m_queueRequests);
-  m_physicalDevice = std::move(deviceSelection.physicalDevice);
+  m_device.setPhysicalDevice(std::move(deviceSelection.physicalDevice));
 
   createLogicalDevice(deviceSelection);
   createCommandPool();
@@ -50,12 +52,12 @@ auto VulkanContext::requestQueue(const QueueRequest &request) -> QueueHandle &
 
   // Return a reference to the newly added queue handle. The actual queue will be assigned during
   // build() when the logical device is created.
-  m_queues.emplace_back(0, 0, nullptr);
+  m_queues.emplace_back(std::make_unique<QueueHandle>(0, 0, nullptr));
 
-  return m_queues.back();
+  return *m_queues.back();
 }
 
-auto VulkanContext::getCommandPool(uint32_t familyIndex) -> CommandPool &
+auto VulkanContext::getCommandPool(uint32_t familyIndex) const -> const CommandPool &
 {
   auto poolIt = m_commandPools.find(familyIndex);
   if (poolIt == m_commandPools.end())
@@ -74,21 +76,20 @@ auto VulkanContext::getDefaultQueue() const -> const QueueHandle &
     spdlog::error("No queues available to get default queue");
     std::abort();
   }
-  return m_queues[0];
+  return *m_queues[0];
 }
 
-auto VulkanContext::getDevice() const -> const vk::raii::Device & { return m_device; }
+auto VulkanContext::getDevice() -> vksim::Device & { return m_device; }
 
-auto VulkanContext::getPhysicalDevice() const -> const vk::raii::PhysicalDevice &
-{
-  return m_physicalDevice;
-}
+auto VulkanContext::getDevice() const -> const vksim::Device & { return m_device; }
 
 auto VulkanContext::getSurface() const -> const vk::raii::SurfaceKHR & { return m_surface; }
 
+auto VulkanContext::getWindow() const -> const vksim::Window & { return m_window; }
+
 auto VulkanContext::getMaxUsableSampleCount() const -> vk::SampleCountFlagBits
 {
-  vk::PhysicalDeviceProperties physicalDeviceProperties = m_physicalDevice.getProperties();
+  vk::PhysicalDeviceProperties physicalDeviceProperties = m_device.physical().getProperties();
 
   vk::SampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
                                 physicalDeviceProperties.limits.framebufferDepthSampleCounts;
@@ -198,7 +199,7 @@ void VulkanContext::createInstance(const ContextCreateInfo &createInfo)
 auto VulkanContext::createSurface() -> void
 {
   VkSurfaceKHR _surface;
-  if (glfwCreateWindowSurface(*m_instance, m_window, nullptr, &_surface) != 0)
+  if (glfwCreateWindowSurface(*m_instance, m_window.getGLFWwindow(), nullptr, &_surface) != 0)
   {
     spdlog::error("glfwCreateWindowSurface failed with error code {}", glfwGetError(nullptr));
     std::abort();
@@ -210,7 +211,7 @@ auto VulkanContext::createLogicalDevice(const DeviceSelection &deviceSelection) 
 {
   // find the index of the first queue family that supports graphics
   std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
-      m_physicalDevice.getQueueFamilyProperties();
+      m_device.physical().getQueueFamilyProperties();
 
   // Based on queue assignments in DeviceSelector, count the number of
   // queues needed for each queue family
@@ -252,14 +253,15 @@ auto VulkanContext::createLogicalDevice(const DeviceSelection &deviceSelection) 
       .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
       .ppEnabledExtensionNames = deviceExtensions.data()};
 
-  m_device = vk::raii::Device(m_physicalDevice, deviceCreateInfo);
+  m_device.setLogicalDevice(vk::raii::Device(m_device.physical(), deviceCreateInfo));
 
   uint32_t queueIndex = 0;
   for (const auto &request : deviceSelection.queueAssignments)
   {
-    m_queues[queueIndex].familyIndex = request.familyIndex;
-    m_queues[queueIndex].queueIndex = request.queueIndex;
-    m_queues[queueIndex].queue = m_device.getQueue(request.familyIndex, request.queueIndex);
+    m_queues[queueIndex]->familyIndex = request.familyIndex;
+    m_queues[queueIndex]->queueIndex = request.queueIndex;
+    m_queues[queueIndex]->queue =
+        m_device.logical().getQueue(request.familyIndex, request.queueIndex);
 
     // Log the assigned queue information
     spdlog::info("Assigned queue {}: familyIndex={}, queueIndex={}", queueIndex,
@@ -274,10 +276,10 @@ auto VulkanContext::createCommandPool() -> void
   for (const auto &queueHandle : m_queues)
   {
     CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-                                   .queueFamily = queueHandle.familyIndex};
-    m_commandPools.emplace(queueHandle.familyIndex, CommandPool(this, poolInfo));
+                                   .queueFamily = queueHandle->familyIndex};
+    m_commandPools.emplace(queueHandle->familyIndex, CommandPool(*this, poolInfo));
 
-    spdlog::info("Created command pool for queue family index {}", queueHandle.familyIndex);
+    spdlog::info("Created command pool for queue family index {}", queueHandle->familyIndex);
   }
 }
 

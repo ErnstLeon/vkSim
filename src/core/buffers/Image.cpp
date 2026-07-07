@@ -9,8 +9,9 @@
 namespace vksim
 {
 
-Image::Image(VulkanContext *context, const ImageCreateInfo &createInfo)
-    : m_context(context), m_width(createInfo.width), m_height(createInfo.height)
+Image::Image(vksim::Device &device) : m_device(device) {};
+
+auto Image::create(const ImageCreateInfo &createInfo) -> void
 {
   vk::ImageCreateInfo imageInfo{
       .imageType = vk::ImageType::e2D,
@@ -24,59 +25,15 @@ Image::Image(VulkanContext *context, const ImageCreateInfo &createInfo)
       .sharingMode = vk::SharingMode::eExclusive,
       .initialLayout = vk::ImageLayout::eUndefined};
 
-  m_image = std::move(vk::raii::Image(m_context->getDevice(), imageInfo));
+  m_image = std::move(vk::raii::Image(m_device.logical(), imageInfo));
   vk::MemoryRequirements memRequirements = m_image.getMemoryRequirements();
   vk::MemoryAllocateInfo allocInfo{
       .allocationSize = memRequirements.size,
       .memoryTypeIndex =
-          findMemoryType(m_context, memRequirements.memoryTypeBits, createInfo.properties)};
-  m_imageMemory = vk::raii::DeviceMemory(m_context->getDevice(), allocInfo);
+          m_device.findMemoryType(memRequirements.memoryTypeBits, createInfo.properties)
+              .value_or(0)};
+  m_imageMemory = vk::raii::DeviceMemory(m_device.logical(), allocInfo);
   m_image.bindMemory(*m_imageMemory, 0);
-}
-
-auto Image::findMemoryType(VulkanContext *context, uint32_t typeFilter,
-                           vk::MemoryPropertyFlags properties) -> uint32_t
-{
-  vk::PhysicalDeviceMemoryProperties memProperties =
-      context->getPhysicalDevice().getMemoryProperties();
-  for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-  {
-    if ((typeFilter & (1 << i)) != 0U &&
-        (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-    {
-      return i;
-    }
-  }
-
-  spdlog::error("Failed to find suitable memory type!");
-  std::abort();
-}
-
-auto Image::findSupportedFormat(VulkanContext *context, const std::vector<vk::Format> &candidates,
-                                vk::ImageTiling tiling, vk::FormatFeatureFlags features)
-    -> std::expected<vk::Format, std::string>
-{
-  for (const auto format : candidates)
-  {
-    vk::FormatProperties props = context->getPhysicalDevice().getFormatProperties(format);
-
-    if (((tiling == vk::ImageTiling::eLinear) &&
-         ((props.linearTilingFeatures & features) == features)) ||
-        ((tiling == vk::ImageTiling::eOptimal) &&
-         ((props.optimalTilingFeatures & features) == features)))
-    {
-      return format;
-    }
-  }
-
-  return std::unexpected("failed to find supported format!");
-}
-
-auto Image::findDepthFormat(VulkanContext *context) -> std::expected<vk::Format, std::string>
-{
-  return findSupportedFormat(
-      context, {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
-      vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
 auto Image::getVkImage() const -> const vk::raii::Image & { return m_image; }
@@ -93,7 +50,7 @@ auto Image::getVkImageView(const ImageViewCreateInfo &createInfo) const -> vk::r
                                                         .levelCount = 1,
                                                         .baseArrayLayer = 0,
                                                         .layerCount = 1}};
-  return {m_context->getDevice(), viewInfo};
+  return {m_device.logical(), viewInfo};
 }
 
 auto Image::copyFromBuffer(Buffer &buffer, uint32_t width, uint32_t height,

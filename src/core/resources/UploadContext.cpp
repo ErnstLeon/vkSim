@@ -3,31 +3,24 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
-#include "vksim/core/commands/CommandPool.hpp"
+#include "vksim/core/context/CommandPool.hpp"
 #include "vksim/core/resources/UploadContext.hpp"
 
 namespace vksim
 {
 
-UploadContext::UploadContext(VulkanContext *context) : m_context(context)
-{
-  if (m_context == nullptr)
-  {
-    spdlog::error("UploadContext requires a valid VulkanContext");
-    std::abort();
-  }
-}
+UploadContext::UploadContext(VulkanContext &context) : m_context(context) {}
 
 auto UploadContext::begin() -> void
 {
   // Allocate a command buffer from the command pool associated with the default queue
-  const auto &defaultQueue = m_context->getDefaultQueue();
-  auto &commandPool = m_context->getCommandPool(defaultQueue.familyIndex);
+  const auto &defaultQueue = m_context.getDefaultQueue();
+  const auto &commandPool = m_context.getCommandPool(defaultQueue.familyIndex);
 
   vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool.get(),
                                           .level = vk::CommandBufferLevel::ePrimary,
                                           .commandBufferCount = 1};
-  auto commandBuffers = vk::raii::CommandBuffers(m_context->getDevice(), allocInfo);
+  auto commandBuffers = vk::raii::CommandBuffers(m_context.getDevice().logical(), allocInfo);
   m_commandBuffer = std::move(commandBuffers.front());
 
   // Begin recording commands into the command buffer
@@ -48,7 +41,7 @@ auto UploadContext::submitAndWait() -> void
 
   // Submit the command buffer to the default queue and wait for it to finish
   vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*m_commandBuffer};
-  const auto &defaultQueue = m_context->getDefaultQueue();
+  const auto &defaultQueue = m_context.getDefaultQueue();
   defaultQueue.queue.submit(submitInfo, nullptr);
   defaultQueue.queue.waitIdle();
 
