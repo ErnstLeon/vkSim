@@ -1,6 +1,7 @@
 #pragma once
 
 #include <expected>
+#include <optional>
 #include <slang/slang-com-helper.h>
 #include <slang/slang-com-ptr.h>
 #include <slang/slang.h>
@@ -19,7 +20,11 @@ namespace vksim::compiler
 class SlangCompiler
 {
 public:
-  SlangCompiler();
+  /** @brief Constructs a SlangCompiler instance and initializes the Slang session.
+   * @param slangPath Optional path to the Slang compiler. If not provided, the default path will be
+   * used.
+   */
+  SlangCompiler(std::optional<std::string> slangPath = std::nullopt);
 
   /** @brief Compiles the given shader source code to SPIR-V binary format.
    *
@@ -39,6 +44,8 @@ private:
   Slang::ComPtr<slang::IGlobalSession> globalSession;
   /** @brief The Slang session for this compiler instance */
   Slang::ComPtr<slang::ISession> session;
+
+  std::optional<std::string> m_slangPath;
 };
 
 } // namespace vksim::compiler

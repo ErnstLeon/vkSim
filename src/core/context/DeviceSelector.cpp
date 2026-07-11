@@ -1,7 +1,7 @@
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan.hpp>
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/context/DeviceSelector.hpp"
@@ -147,19 +147,21 @@ auto DeviceSelector::checkQueues(vk::raii::PhysicalDevice const &device,
 
 auto DeviceSelector::checkFeatures(vk::raii::PhysicalDevice const &device,
                                    DeviceFeatures const &deviceFeatures)
-    -> std::pair<bool,
-                 vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                                    vk::PhysicalDeviceVulkan13Features,
-                                    vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>
+    -> std::pair<bool, vk::StructureChain<
+                           vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
+                           vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
+                           vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>
 {
   auto features =
       device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                          vk::PhysicalDeviceVulkan13Features,
+                          vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
                           vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
 
   const auto &core = features.get<vk::PhysicalDeviceFeatures2>().features;
 
   const auto &vk11 = features.get<vk::PhysicalDeviceVulkan11Features>();
+
+  const auto &vk12 = features.get<vk::PhysicalDeviceVulkan12Features>();
 
   const auto &vk13 = features.get<vk::PhysicalDeviceVulkan13Features>();
 
@@ -170,7 +172,8 @@ auto DeviceSelector::checkFeatures(vk::raii::PhysicalDevice const &device,
       (!deviceFeatures.shaderDrawParameters || (vk11.shaderDrawParameters != 0U)) &&
       (!deviceFeatures.dynamicRendering || (vk13.dynamicRendering != 0U)) &&
       (!deviceFeatures.synchronization2 || (vk13.synchronization2 != 0U)) &&
-      (!deviceFeatures.extendedDynamicState || (extDyn.extendedDynamicState != 0U));
+      (!deviceFeatures.extendedDynamicState || (extDyn.extendedDynamicState != 0U)) &&
+      (!deviceFeatures.runtimeDescriptorArray || (vk12.runtimeDescriptorArray != 0U));
 
   return {supportsRequiredFeatures, std::move(features)};
 }

@@ -1,16 +1,11 @@
 #pragma once
 
-#include <expected>
 #include <string>
-#include <typeindex>
-#include <unordered_map>
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
-#include <utility>
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/buffers/Image.hpp"
 #include "vksim/core/resources/Resource.hpp"
-#include "vksim/utility/Logging.hpp"
 
 namespace vksim
 {

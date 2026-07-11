@@ -8,50 +8,50 @@
 namespace vksim
 {
 
-auto Camera::transform(const UpdateParams &params) -> void
+auto Camera::transform(const UpdateParams &updateParams) -> void
 {
-  if (params.width.has_value())
+  if (updateParams.width.has_value())
   {
-    m_width = *params.width;
+    m_width = *updateParams.width;
   }
-  if (params.height.has_value())
+  if (updateParams.height.has_value())
   {
-    m_height = *params.height;
+    m_height = *updateParams.height;
   }
-  if (params.position.has_value())
+  if (updateParams.position.has_value())
   {
-    m_position = *params.position;
+    params.cameraPos = *updateParams.position;
   }
-  if (params.center.has_value())
+  if (updateParams.center.has_value())
   {
-    m_center = *params.center;
+    m_center = *updateParams.center;
   }
-  if (params.up.has_value())
+  if (updateParams.up.has_value())
   {
-    m_up = *params.up;
+    m_up = *updateParams.up;
   }
-  if (params.fov.has_value())
+  if (updateParams.fov.has_value())
   {
-    m_fov = *params.fov;
+    m_fov = *updateParams.fov;
   }
-  if (params.nearPlane.has_value())
+  if (updateParams.nearPlane.has_value())
   {
-    m_nearPlane = *params.nearPlane;
+    m_nearPlane = *updateParams.nearPlane;
   }
-  if (params.farPlane.has_value())
+  if (updateParams.farPlane.has_value())
   {
-    m_farPlane = *params.farPlane;
+    m_farPlane = *updateParams.farPlane;
   }
 
   const float safeHeight = (m_height == 0U) ? 1.0F : static_cast<float>(m_height);
   const float aspectRatio = static_cast<float>(m_width) / safeHeight;
 
-  m_viewMatrix = glm::lookAt(m_position, m_center, m_up);
-  m_projectionMatrix = glm::perspective(glm::radians(m_fov), aspectRatio, m_nearPlane, m_farPlane);
-  m_projectionMatrix[1][1] *= -1.0F;
+  params.view = glm::lookAt(params.cameraPos, m_center, m_up);
+  params.proj = glm::perspective(glm::radians(m_fov), aspectRatio, m_nearPlane, m_farPlane);
+  params.proj[1][1] *= -1.0F;
 
-  m_viewMatrix = glm::transpose(m_viewMatrix);
-  m_projectionMatrix = glm::transpose(m_projectionMatrix);
+  params.view = glm::transpose(params.view);
+  params.proj = glm::transpose(params.proj);
 }
 
 } // namespace vksim

@@ -1,3 +1,4 @@
+#include "vksim/core/resources/Material.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -26,6 +27,7 @@
 #include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/render/Renderer.hpp"
 #include "vksim/core/render/Swapchain.hpp"
+#include "vksim/core/resources/Material.hpp"
 #include "vksim/core/resources/Mesh.hpp"
 #include "vksim/core/resources/ResourceManager.hpp"
 #include "vksim/core/resources/Texture.hpp"
@@ -69,11 +71,15 @@ auto main() -> int
 
                .device = {
                    .extensions = {vk::KHRSwapchainExtensionName, "VK_KHR_portability_subset"},
-                   .features = {.anisotropicFiltering = true,
-                                .shaderDrawParameters = true,
-                                .dynamicRendering = true,
-                                .synchronization2 = true,
-                                .extendedDynamicState = true},
+                   .features =
+                       {
+                           .anisotropicFiltering = true,
+                           .shaderDrawParameters = true,
+                           .dynamicRendering = true,
+                           .synchronization2 = true,
+                           .extendedDynamicState = true,
+                           .runtimeDescriptorArray = true,
+                       },
                }});
 
   // Request a graphics queue and a compute queue from the Vulkan context
@@ -99,22 +105,41 @@ auto main() -> int
   uploadContext.begin();
 
   // Load a mesh and a texture using the resource manager
-  resourceManager.Load<vksim::Mesh>(
-      "viking_mesh", PROJECT_SOURCE_DIR "/assets/meshes/viking_room.obj", context, uploadContext);
+  resourceManager.Load<vksim::Mesh>("floor_mesh", context, uploadContext,
+                                    PROJECT_SOURCE_DIR "/assets/meshes/floor.obj");
 
-  // Load a texture using the resource manager
-  resourceManager.Load<vksim::Texture>("viking_texture",
-                                       PROJECT_SOURCE_DIR "/assets/textures/viking_room.png",
-                                       context, uploadContext);
+  resourceManager.Load<vksim::Texture>("floor_texture", context, uploadContext,
+                                       PROJECT_SOURCE_DIR "/assets/textures/floor.png");
 
-  resourceManager.Load<vksim::Mesh>("floor_mesh", PROJECT_SOURCE_DIR "/assets/meshes/floor.obj",
-                                    context, uploadContext);
+  resourceManager.Load<vksim::Mesh>("ball_mesh", context, uploadContext,
+                                    PROJECT_SOURCE_DIR "/assets/meshes/ball.obj");
 
-  resourceManager.Load<vksim::Texture>(
-      "floor_texture", PROJECT_SOURCE_DIR "/assets/textures/floor.png", context, uploadContext);
+  resourceManager.Load<vksim::Mesh>("teapot_mesh", context, uploadContext,
+                                    PROJECT_SOURCE_DIR "/assets/meshes/utah_teapot.obj");
 
-  resourceManager.Load<vksim::Mesh>("ball_mesh", PROJECT_SOURCE_DIR "/assets/meshes/ball.obj",
-                                    context, uploadContext);
+  resourceManager.Load<vksim::Mesh>("bunny_mesh", context, uploadContext,
+                                    PROJECT_SOURCE_DIR "/assets/meshes/bunny.obj");
+  // Load material one
+  {
+    vksim::MaterialInfo materialInfo{
+        .m_baseColor = glm::vec3(0.0F, 0.0F, 1.0F), .m_metallic = 0.0F, .m_roughness = 0.1F};
+
+    resourceManager.Load<vksim::Material>("material_1", context, uploadContext, materialInfo);
+  }
+  // Load material two
+  {
+    vksim::MaterialInfo materialInfo{
+        .m_baseColor = glm::vec3(0.0F, 1.0F, 0.0F), .m_metallic = 0.0F, .m_roughness = 0.4F};
+
+    resourceManager.Load<vksim::Material>("material_2", context, uploadContext, materialInfo);
+  }
+  // Load material three
+  {
+    vksim::MaterialInfo materialInfo{
+        .m_baseColor = glm::vec3(1.0F, 0.0F, 0.0F), .m_metallic = 0.7F, .m_roughness = 0.1F};
+
+    resourceManager.Load<vksim::Material>("material_3", context, uploadContext, materialInfo);
+  }
 
   // Submit the upload context and wait for completion
   uploadContext.submitAndWait();
@@ -123,14 +148,23 @@ auto main() -> int
   auto scene = vksim::Scene(context, resourceManager);
   auto &camera = scene.addCamera();
 
-  auto &vikingHouse = scene.addObject();
-  vikingHouse.setMesh("viking_mesh");
-  vikingHouse.setTexture("viking_texture");
-  vikingHouse.setVisible(true);
+  auto &spotLight = scene.addSpotLight();
+  auto &pointLight = scene.addPointLight();
 
   auto &ball = scene.addObject();
   ball.setMesh("ball_mesh");
+  ball.setMaterial("material_1");
   ball.setVisible(true);
+
+  auto &bunny = scene.addObject();
+  bunny.setMesh("bunny_mesh");
+  bunny.setMaterial("material_2");
+  bunny.setVisible(true);
+
+  auto &teapot = scene.addObject();
+  teapot.setMesh("teapot_mesh");
+  teapot.setMaterial("material_3");
+  teapot.setVisible(true);
 
   auto &floor = scene.addObject();
   floor.setMesh("floor_mesh");
@@ -141,9 +175,9 @@ auto main() -> int
                    .rotation = glm::vec3(0.0F, 0.0F, 0.0F),
                    .scale = glm::vec3(10.0F, 10.0F, 10.0F)});
 
-  vikingHouse.transform({.position = glm::vec3(0.F, 0.F, 0.F),
-                         .rotation = glm::vec3(0.0F, 0.0F, 0.0F),
-                         .scale = glm::vec3(3.0F, 3.0F, 3.0F)});
+  bunny.transform({.position = glm::vec3(0.F, -4.0F, 0.0F),
+                   .rotation = glm::vec3(90.0F, 0.0F, 0.0F),
+                   .scale = glm::vec3(15.0F, 15.0F, 15.0F)});
 
   ball.transform({.position = glm::vec3(0.F, 4.F, 1.0F),
                   .rotation = glm::vec3(0.0F, 0.0F, 0.0F),
@@ -157,6 +191,17 @@ auto main() -> int
                     .fov = 90.0F,
                     .nearPlane = 0.1F,
                     .farPlane = 100.0F});
+
+  spotLight.transform({.position = glm::vec3(0.0F, 0.0F, 5.0F),
+                       .direction = glm::vec3(0.0F, 0.0F, -1.0F),
+                       .color = glm::vec3(1.0F, 1.0F, 1.0F),
+                       .innerCone = glm::radians(45.0F),
+                       .outerCone = glm::radians(80.0F),
+                       .intensity = 10.0F});
+
+  pointLight.transform({.position = glm::vec3(5.0F, 5.0F, 5.0F),
+                        .color = glm::vec3(1.0F, 1.0F, 1.0F),
+                        .intensity = 10.0F});
 
   // Create a renderer with the Vulkan context and the scene
   auto renderer = vksim::Renderer(context, scene, graphicsQueue, MAX_FRAMES_IN_FLIGHT);
@@ -172,6 +217,8 @@ auto main() -> int
         std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
     camera.transform(
         {.position = glm::vec3(sin(time * 0.5F) * 5.0F, cos(time * 0.5F) * 5.0F, 5.5F)});
+    pointLight.transform(
+        {.position = glm::vec3(sin(time * 0.5F) * 5.0F, cos(time * 0.5F) * 5.0F, 5.0F)});
 
     renderer.drawFrame();
   }

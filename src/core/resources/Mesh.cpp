@@ -19,7 +19,7 @@ namespace vksim
 
 auto Vertex::operator==(const Vertex &other) const -> bool
 {
-  return pos == other.pos && color == other.color && uv == other.uv;
+  return pos == other.pos && normal == other.normal && uv == other.uv;
 }
 
 auto Vertex::getBindingDescription() -> vk::VertexInputBindingDescription
@@ -37,7 +37,7 @@ auto Vertex::getAttributeDescriptions() -> std::array<vk::VertexInputAttributeDe
            {.location = 1,
             .binding = 0,
             .format = vk::Format::eR32G32B32Sfloat,
-            .offset = offsetof(Vertex, color)},
+            .offset = offsetof(Vertex, normal)},
            {.location = 2,
             .binding = 0,
             .format = vk::Format::eR32G32Sfloat,
@@ -118,7 +118,12 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
                      1.0F - attrib.texcoords[(2 * index.texcoord_index) + 1]};
       }
 
-      vertex.color = {1.0F, 1.0F, 1.0F};
+      if (index.normal_index >= 0)
+      {
+        vertex.normal = {attrib.normals[(3 * index.normal_index) + 0],
+                         attrib.normals[(3 * index.normal_index) + 1],
+                         attrib.normals[(3 * index.normal_index) + 2]};
+      }
 
       auto [iter, inserted] =
           uniqueVertices.try_emplace(vertex, static_cast<uint32_t>(vertices.size()));
@@ -129,6 +134,31 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
       }
 
       indices.push_back(iter->second);
+    }
+
+    // If there are no normals in the OBJ file, compute them manually
+    if (attrib.normals.empty())
+    {
+      for (size_t i = 0; i < indices.size(); i += 3)
+      {
+        const auto &vert0 = vertices[indices[i + 0]];
+        const auto &vert1 = vertices[indices[i + 1]];
+        const auto &vert2 = vertices[indices[i + 2]];
+
+        glm::vec3 edge1 = vert1.pos - vert0.pos;
+        glm::vec3 edge2 = vert2.pos - vert0.pos;
+        glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+        vertices[indices[i + 0]].normal += normal;
+        vertices[indices[i + 1]].normal += normal;
+        vertices[indices[i + 2]].normal += normal;
+      }
+
+      // Normalize the normals
+      for (auto &vertex : vertices)
+      {
+        vertex.normal = glm::normalize(vertex.normal);
+      }
     }
   }
 

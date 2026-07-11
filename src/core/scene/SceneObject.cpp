@@ -36,14 +36,25 @@ auto SceneObject::getTexture() const -> std::expected<Texture *, std::string>
   return m_resourceManager.GetResource<Texture>(m_textureId);
 }
 
+auto SceneObject::setMaterial(const std::string &materialId) -> void { m_materialId = materialId; }
+
+auto SceneObject::getMaterialId() const -> const std::string & { return m_materialId; }
+
+auto SceneObject::getMaterial() const -> std::expected<Material *, std::string>
+{
+  return m_resourceManager.GetResource<Material>(m_materialId);
+}
+
 auto SceneObject::transform(const Transform &transform) -> void
 {
   auto model = glm::mat4(1.0F);
-  model = glm::scale(model, transform.scale);
+
+  model = glm::translate(model, transform.position);
   model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0F, 0.0F, 0.0F));
   model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0F, 1.0F, 0.0F));
   model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0F, 0.0F, 1.0F));
-  model = glm::translate(model, transform.position);
+
+  model = glm::scale(model, transform.scale);
 
   // Transpose the model matrix to match Vulkan's column-major order
   model = glm::transpose(model);

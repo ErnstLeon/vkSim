@@ -12,7 +12,12 @@
 
 namespace vksim
 {
-/** @brief Manages the lifecycle of resources in the engine.
+/** @brief Manages the lifecycle of resources in the engine. Is responsible for loading, caching,
+ * and releasing resources such as meshes, textures, and materials. It is supposed to deal with all
+ * device local resources. It ensures that resources are loaded only once and provides access to
+ * them via unique identifiers. The ResourceManager uses a two-level mapping: the first level maps
+ * resource types to their instances, and the second level maps resource IDs to their instances.
+ * This design allows for efficient resource management and retrieval based on type and identifier.
  */
 class ResourceManager
 {
@@ -25,9 +30,9 @@ public:
    * @param uploadContext Upload command context that keeps staging buffers alive.
    * @return Pointer to the loaded resource instance.
    */
-  template <typename T>
-  auto Load(const std::string &resourceId, const std::string &filepath, VulkanContext &context,
-            UploadContext &uploadContext) -> std::expected<T *, std::string>
+  template <typename T, typename... Args>
+  auto Load(const std::string &resourceId, VulkanContext &context, UploadContext &uploadContext,
+            Args &&...args) -> std::expected<T *, std::string>
   {
     auto &typeResources = resources[typeid(T)];
     auto iter = typeResources.find(resourceId);
@@ -36,7 +41,8 @@ public:
       return std::expected<T *, std::string>(static_cast<T *>(iter->second.get()));
     }
 
-    auto resource = std::make_unique<T>(context.getDevice(), resourceId, filepath);
+    auto resource =
+        std::make_unique<T>(context.getDevice(), resourceId, std::forward<Args>(args)...);
     if (!resource->Load(uploadContext))
     {
       return std::expected<T *, std::string>(std::unexpect,
@@ -55,15 +61,8 @@ public:
   template <typename T>
   auto GetResource(const std::string &resourceId) -> std::expected<T *, std::string>
   {
-    auto resourceIt = resources.find(std::type_index(typeid(T)));
-    if (resourceIt == resources.end())
-    {
-      return std::expected<T *, std::string>(std::unexpect, "Resource not found: " + resourceId);
-    }
-
-    auto &typeResources = resourceIt->second;
+    auto &typeResources = resources[typeid(T)];
     auto iter = typeResources.find(resourceId);
-
     if (iter != typeResources.end())
     {
       // Resource found: downcast and return typed pointer
