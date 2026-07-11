@@ -753,6 +753,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
       continue;
     }
 
+    // Update model matrix and normal matrix for the current object in the push constant range.
+    m_objectDescriptors[objectIndex].modelMatrix = object->getModelMatrix();
+    m_objectDescriptors[objectIndex].normalMatrix =
+        glm::mat4(glm::inverse(glm::transpose(glm::mat3(object->getModelMatrix()))));
+
     // Push the model matrix and material and texture ids as a push constant to the vertex shader
     commandBuffer.pushConstants(
         m_pipelineLayout, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0,
