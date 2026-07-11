@@ -79,16 +79,12 @@ auto SpotLight::transform(const UpdateParams &updateParams) -> void
   {
     // Set the inner cone angle in the w component of position
     params.position.w = glm::cos(updateParams.innerCone.value());
-    spdlog::info("SpotLight inner cone angle set to {} degrees (cosine: {})",
-                 glm::degrees(updateParams.innerCone.value()), params.position.w);
   }
 
   if (updateParams.outerCone)
   {
     // Set the outer cone angle in the w component of direction
     params.direction.w = glm::cos(updateParams.outerCone.value());
-    spdlog::info("SpotLight outer cone angle set to {} degrees (cosine: {})",
-                 glm::degrees(updateParams.outerCone.value()), params.direction.w);
   }
 }
 
