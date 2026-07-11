@@ -4,6 +4,7 @@
 #include "vksim/core/scene/Camera.hpp"
 #include "vksim/core/scene/Scene.hpp"
 #include "vksim/core/scene/SceneObject.hpp"
+#include "vksim/utility/Logging.hpp"
 
 namespace vksim
 {
@@ -40,7 +41,67 @@ auto Scene::addObject() -> SceneObject &
   return *m_objects.back();
 }
 
+auto Scene::addDirectionalLight() -> DirectionalLight &
+{
+  spdlog::info("Adding new directional light with id {}", m_directionalLights.size());
+
+  m_directionalLights.emplace_back(std::make_unique<DirectionalLight>());
+  m_sceneInfo.numDirectionalLights += 1;
+  return *m_directionalLights.back();
+}
+
+auto Scene::addPointLight() -> PointLight &
+{
+  spdlog::info("Adding new point light with id {}", m_pointLights.size());
+
+  m_pointLights.emplace_back(std::make_unique<PointLight>());
+  m_sceneInfo.numPointLights += 1;
+  return *m_pointLights.back();
+}
+
+auto Scene::addSpotLight() -> SpotLight &
+{
+  spdlog::info("Adding new spot light with id {}", m_spotLights.size());
+
+  m_spotLights.emplace_back(std::make_unique<SpotLight>());
+  m_sceneInfo.numSpotLights += 1;
+  return *m_spotLights.back();
+}
+
+auto Scene::getDirectionalLights() const -> const std::vector<std::unique_ptr<DirectionalLight>> &
+{
+  return m_directionalLights;
+}
+
+auto Scene::getPointLights() const -> const std::vector<std::unique_ptr<PointLight>> &
+{
+  return m_pointLights;
+}
+
+auto Scene::getSpotLights() const -> const std::vector<std::unique_ptr<SpotLight>> &
+{
+  return m_spotLights;
+}
+
 auto Scene::clearObjects() -> void { m_objects.clear(); }
+
+auto Scene::clearDirectionalLights() -> void
+{
+  m_directionalLights.clear();
+  m_sceneInfo.numDirectionalLights = 0;
+}
+
+auto Scene::clearPointLights() -> void
+{
+  m_pointLights.clear();
+  m_sceneInfo.numPointLights = 0;
+}
+
+auto Scene::clearSpotLights() -> void
+{
+  m_spotLights.clear();
+  m_sceneInfo.numSpotLights = 0;
+}
 
 auto Scene::getObjects() const -> const std::vector<std::unique_ptr<SceneObject>> &
 {
@@ -48,5 +109,9 @@ auto Scene::getObjects() const -> const std::vector<std::unique_ptr<SceneObject>
 }
 
 auto Scene::getObjects() -> std::vector<std::unique_ptr<SceneObject>> & { return m_objects; }
+
+auto Scene::getResourceManager() const -> ResourceManager & { return m_resourceManager; }
+
+auto Scene::getSceneInfo() const -> const SceneInfo & { return m_sceneInfo; }
 
 } // namespace vksim

@@ -24,7 +24,7 @@ namespace vksim
 struct Vertex
 {
   glm::vec3 pos{};
-  glm::vec3 color{};
+  glm::vec3 normal{};
   glm::vec2 uv{};
 
   auto operator==(const Vertex &other) const -> bool;
@@ -50,7 +50,7 @@ template <> struct hash<vksim::Vertex>
 {
   auto operator()(vksim::Vertex const &vertex) const -> size_t
   {
-    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^
            (hash<glm::vec2>()(vertex.uv) << 1);
   }
 };

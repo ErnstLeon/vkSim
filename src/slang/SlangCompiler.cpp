@@ -3,14 +3,17 @@
 #include <slang/slang-com-ptr.h>
 #include <slang/slang.h>
 #include <string_view>
+#include <utility>
 
 #include "vksim/slang/SlangCompiler.hpp"
 #include "vksim/utility/Error.hpp"
+#include "vksim/utility/Logging.hpp"
 
 namespace vksim::compiler
 {
 
-SlangCompiler::SlangCompiler()
+SlangCompiler::SlangCompiler(std::optional<std::string> slangPath)
+    : m_slangPath(std::move(slangPath))
 {
   // Create the global Slang session
   createGlobalSession(globalSession.writeRef());
@@ -21,7 +24,14 @@ SlangCompiler::SlangCompiler()
 
   // Create the session description
   slang::SessionDesc sessionDesc = {.targets = &targetDesc, .targetCount = 1};
+  const auto *searchPaths = m_slangPath->c_str();
 
+  globalSession->createSession(sessionDesc, session.writeRef());
+  if (m_slangPath.has_value())
+  {
+    sessionDesc.searchPathCount = 1;
+    sessionDesc.searchPaths = &searchPaths;
+  }
   // Create the Slang session for this compiler instance
   globalSession->createSession(sessionDesc, session.writeRef());
 };
@@ -31,7 +41,17 @@ auto SlangCompiler::compileToSpirv(std::string_view filename, std::string_view m
     -> std::expected<std::vector<char>, error::Error>
 {
   // Read the shader source code from the specified file
-  std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
+  std::string fullPath;
+  if (m_slangPath.has_value())
+  {
+    fullPath = m_slangPath.value() + "/" + std::string(filename);
+  }
+  else
+  {
+    fullPath = std::string(filename);
+  }
+
+  std::ifstream file(fullPath, std::ios::ate | std::ios::binary);
 
   if (!file.is_open())
   {

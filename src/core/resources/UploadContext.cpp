@@ -46,7 +46,7 @@ auto UploadContext::submitAndWait() -> void
   defaultQueue.queue.waitIdle();
 
   spdlog::info("UploadContext: Command buffer submitted and completed, {} staging buffers released "
-               "(2 per Mesh, 1 per Texture)",
+               "(2 per Mesh, 1 per Texture, 1 per Material)",
                m_stagingBuffers.size());
 
   m_commandBuffer = nullptr;

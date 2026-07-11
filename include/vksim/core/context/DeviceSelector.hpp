@@ -51,6 +51,7 @@ struct DeviceFeatures
   bool dynamicRendering = true;
   bool synchronization2 = true;
   bool extendedDynamicState = true;
+  bool runtimeDescriptorArray = true;
 };
 
 /**
@@ -74,7 +75,7 @@ struct DeviceSelection
   /** @brief The feature chain of the selected physical device.
    */
   vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                     vk::PhysicalDeviceVulkan13Features,
+                     vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
                      vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
       featureChain;
   /** @brief The required device extensions for the selected physical
@@ -148,10 +149,10 @@ private:
    */
   static auto checkFeatures(vk::raii::PhysicalDevice const &device,
                             DeviceFeatures const &deviceFeatures)
-      -> std::pair<
-          bool, vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-                                   vk::PhysicalDeviceVulkan13Features,
-                                   vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>;
+      -> std::pair<bool, vk::StructureChain<
+                             vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
+                             vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
+                             vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>;
 
   /**
    * @brief Checks if the requested queues can be satisfied by the

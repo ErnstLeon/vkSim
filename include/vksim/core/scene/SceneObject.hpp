@@ -8,6 +8,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 
+#include "vksim/core/resources/Material.hpp"
 #include "vksim/core/resources/Mesh.hpp"
 #include "vksim/core/resources/ResourceManager.hpp"
 #include "vksim/core/resources/Texture.hpp"
@@ -47,6 +48,13 @@ public:
   [[nodiscard]] auto getTextureId() const -> const std::string &;
   [[nodiscard]] auto getTexture() const -> std::expected<Texture *, std::string>;
 
+  /** @brief Sets the material for the scene object using a unique identifier.
+   * @param materialId Unique identifier for the material resource.
+   */
+  auto setMaterial(const std::string &materialId) -> void;
+  [[nodiscard]] auto getMaterialId() const -> const std::string &;
+  [[nodiscard]] auto getMaterial() const -> std::expected<Material *, std::string>;
+
   /** @brief Sets the transform for the scene object.
    * @param transform Transform object containing position, rotation, and scale.
    */
@@ -77,6 +85,7 @@ private:
   ResourceManager &m_resourceManager;
   std::string m_meshId;
   std::string m_textureId;
+  std::string m_materialId;
 
   // Unique identifier for the scene object, can be used for selection or identification
   uint32_t m_objectId{0};
