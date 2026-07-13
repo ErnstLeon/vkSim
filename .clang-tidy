@@ -6,3 +6,7 @@ Checks: >
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(src|include)/'
+
+CheckOptions:
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 40

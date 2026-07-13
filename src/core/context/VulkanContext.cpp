@@ -83,6 +83,8 @@ auto VulkanContext::getDevice() -> vksim::Device & { return m_device; }
 
 auto VulkanContext::getDevice() const -> const vksim::Device & { return m_device; }
 
+auto VulkanContext::getInstance() const -> const vk::raii::Instance & { return m_instance; }
+
 auto VulkanContext::getSurface() const -> const vk::raii::SurfaceKHR & { return m_surface; }
 
 auto VulkanContext::getWindow() const -> const vksim::Window & { return m_window; }

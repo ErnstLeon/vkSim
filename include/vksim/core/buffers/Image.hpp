@@ -18,18 +18,18 @@ class Buffer;
  */
 struct ImageCreateInfo
 {
-  uint32_t width;
-  uint32_t height;
-  vk::SampleCountFlagBits numSamples;
-  vk::Format format;
-  vk::ImageTiling tiling;
+  uint32_t width{};
+  uint32_t height{};
+  vk::SampleCountFlagBits numSamples{vk::SampleCountFlagBits::e1};
+  vk::Format format{};
+  vk::ImageTiling tiling{};
   vk::ImageUsageFlags usage;
   vk::MemoryPropertyFlags properties;
 };
 
 struct ImageViewCreateInfo
 {
-  vk::Format format;
+  vk::Format format{};
   vk::ImageAspectFlags aspectFlags;
 };
 

@@ -1,12 +1,18 @@
-#include "vksim/core/render/Renderer.hpp"
-#include "vksim/core/render/Swapchain.hpp"
-#include "vksim/slang/SlangCompiler.hpp"
-#include "vksim/utility/Logging.hpp"
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
 #include <algorithm>
 #include <cstring>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#include <vulkan/vulkan_raii.hpp>
+
+#include "vksim/core/render/Renderer.hpp"
+#include "vksim/core/render/Swapchain.hpp"
+#include "vksim/imgui/ImGuiUtil.hpp"
+#include "vksim/slang/SlangCompiler.hpp"
+#include "vksim/utility/Logging.hpp"
 
 namespace vksim
 {
@@ -28,6 +34,13 @@ Renderer::Renderer(VulkanContext &context, Scene &scene, QueueHandle &queueHandl
   createGraphicsPipeline();
   createCommandBuffers();
   createSyncObjects();
+  prepareImGui();
+}
+
+auto Renderer::prepareImGui() -> void
+{
+  m_imguiRenderer = std::make_unique<vksim::ImGui::ImGuiRenderer>(m_context, m_swapchain, m_scene);
+  m_imguiRenderer->init();
 }
 
 auto Renderer::createSceneResources() -> void
@@ -179,13 +192,11 @@ auto Renderer::extractUniqueMaterialsAndTextures() -> void
 
   // Loop over all object in the scene and count the number of unique materials and textures that
   // are used by the objects. This is needed to create the descriptor pool with the correct number
-  // of descriptors for each type.
+  // of descriptors for each type. Loop over all objects in the scene and cache descriptor data in
+  // scene order. Visibility is a runtime UI state, so descriptor indices must stay stable even when
+  // objects are hidden.
   for (const auto &object : m_scene.getObjects())
   {
-    if (!object->isVisible())
-    {
-      continue;
-    }
     const auto material = object->getMaterial();
     const auto texture = object->getTexture();
 
@@ -201,9 +212,9 @@ auto Renderer::extractUniqueMaterialsAndTextures() -> void
     m_objectDescriptors.push_back(
         {.modelMatrix = object->getModelMatrix(),
          // transpose first, as the model matrix was transposed for column-major order in the
-         // vertex shader, and then invert to get the normal matrix. Dont transpose back as the
-         // normal matrix is used in the fragment shader and the matrices are transposed to match
-         // Vulkan's column-major order.
+         // vertex shader, and then invert to get the normal matrix. The normal matrix is supposed
+         // to be transposed again. As Vulkan uses column-major order, we can skip the second
+         // transpose as it is done implicitly by the column-major order.
          .normalMatrix =
              glm::mat4(glm::inverse(glm::transpose(glm::mat3(object->getModelMatrix())))),
          .textureId = textureId,
@@ -744,45 +755,51 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 1,
                                    *m_materialDescriptorSets[0], nullptr);
 
-  uint32_t objectIndex = 0;
   for (const auto &object : m_scene.getObjects())
   {
-    auto *mesh = object->getMesh().value();
-    if (!object->isVisible() || mesh == nullptr)
+    if (!object->isVisible())
     {
       continue;
     }
 
+    auto *mesh = object->getMesh().value();
+    if (mesh == nullptr)
+    {
+      continue;
+    }
+
+    const uint32_t objectId = object->getObjectId();
+
     // Update model matrix and normal matrix for the current object in the push constant range.
-    m_objectDescriptors[objectIndex].modelMatrix = object->getModelMatrix();
-    m_objectDescriptors[objectIndex].normalMatrix =
+    m_objectDescriptors[objectId].modelMatrix = object->getModelMatrix();
+    m_objectDescriptors[objectId].normalMatrix =
         glm::mat4(glm::inverse(glm::transpose(glm::mat3(object->getModelMatrix()))));
 
     // Push the model matrix and material and texture ids as a push constant to the vertex shader
     commandBuffer.pushConstants(
         m_pipelineLayout, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0,
-        sizeof(ObjectDescriptor), &m_objectDescriptors[objectIndex]);
+        sizeof(ObjectDescriptor), &m_objectDescriptors[objectId]);
 
     commandBuffer.bindVertexBuffers(0, *mesh->getVertexBuffer(), {0});
     commandBuffer.bindIndexBuffer(*mesh->getIndexBuffer(), 0, vk::IndexType::eUint32);
 
     commandBuffer.drawIndexed(static_cast<uint32_t>(object->getMesh().value()->getIndexCount()), 1,
                               0, 0, 0);
-    ++objectIndex;
   }
 
   commandBuffer.endRendering();
 
   // After rendering, transition the swapchain image to
   // vk::ImageLayout::ePresentSrcKHR
-  m_swapchain.transitionLayout(imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
-                               vk::ImageLayout::ePresentSrcKHR,
-                               vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-                               {},                                                 // dstAccessMask
-                               vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                               vk::PipelineStageFlagBits2::eBottomOfPipe,          // dstStage
-                               vk::ImageAspectFlagBits::eColor, commandBuffer);
-  commandBuffer.end();
+  /*  m_swapchain.transitionLayout(imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
+                                 vk::ImageLayout::ePresentSrcKHR,
+                                 vk::AccessFlagBits2::eColorAttachmentWrite,         //
+     srcAccessMask
+                                 {},                                                 //
+     dstAccessMask vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
+                                 vk::PipelineStageFlagBits2::eBottomOfPipe,          // dstStage
+                                 vk::ImageAspectFlagBits::eColor, commandBuffer);
+  commandBuffer.end();*/
 }
 
 void Renderer::recreateSwapchain()
@@ -823,6 +840,21 @@ void Renderer::recreateSwapchain()
                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
   m_colorImageView = m_colorImage->getVkImageView({.format = m_swapchain.getSurfaceFormat().format,
                                                    .aspectFlags = vk::ImageAspectFlagBits::eColor});
+
+  auto &camera = m_scene.getCamera();
+  camera.transform({.width = m_swapchain.getExtent().width,
+                    .height = m_swapchain.getExtent().height,
+                    .position = camera.params.cameraPos,
+                    .center = camera.m_center,
+                    .up = camera.m_up,
+                    .fov = camera.m_fov,
+                    .nearPlane = camera.m_nearPlane,
+                    .farPlane = camera.m_farPlane});
+
+  if (m_imguiRenderer)
+  {
+    m_imguiRenderer->recreateWithSwapchain();
+  }
 }
 
 auto Renderer::updateSceneDataForCurrentFrame() -> void
@@ -917,6 +949,10 @@ auto Renderer::drawFrame() -> void
   // Record the command buffer for the acquired image
   m_commandBuffers[m_currentFrame].reset();
   recordCommandBuffer(imageIndex, m_currentFrame, m_commandBuffers[m_currentFrame]);
+
+  // Update and record the ImGui command buffer for the current frame
+  m_imguiRenderer->update();
+  m_imguiRenderer->recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
 
   vk::PipelineStageFlags waitDestinationStageMask(
       vk::PipelineStageFlagBits::eColorAttachmentOutput);

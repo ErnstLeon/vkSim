@@ -22,7 +22,7 @@ namespace vksim
 struct Transform
 {
   glm::vec3 position{0.0F, 0.0F, 0.0F};
-  glm::vec3 rotation{0.0F, 0.0F, 0.0F};
+  glm::quat rotation{1.0F, 0.0F, 0.0F, 0.0F}; // Quaternion for rotation
   glm::vec3 scale{1.0F, 1.0F, 1.0F};
 };
 
@@ -59,6 +59,7 @@ public:
    * @param transform Transform object containing position, rotation, and scale.
    */
   auto transform(const Transform &transform) -> void;
+  [[nodiscard]] auto getTransform() const -> const Transform &;
   [[nodiscard]] auto getModelMatrix() const -> const glm::mat4 &;
 
   /** @brief Sets the visibility of the scene object.
@@ -86,6 +87,7 @@ private:
   std::string m_meshId;
   std::string m_textureId;
   std::string m_materialId;
+  Transform m_transform{};
 
   // Unique identifier for the scene object, can be used for selection or identification
   uint32_t m_objectId{0};

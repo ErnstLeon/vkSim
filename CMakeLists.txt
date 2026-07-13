@@ -75,9 +75,18 @@ FetchContent_MakeAvailable(nlohmann_json)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.92.3
+    GIT_TAG v1.92.8
 )
 FetchContent_MakeAvailable(imgui)
+
+# Get ImGuizmo sources (without adding ImGuizmo subproject target)
+FetchContent_Declare(
+    imguizmo
+    GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
+    GIT_TAG master
+    
+)
+FetchContent_Populate(imguizmo)
 
 # Get glfw
 find_package(glfw3 CONFIG REQUIRED)

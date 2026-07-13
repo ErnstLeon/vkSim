@@ -20,6 +20,7 @@ target_sources(vksim
     ${CMAKE_SOURCE_DIR}/src/core/render/Swapchain.cpp
     ${CMAKE_SOURCE_DIR}/src/core/render/Renderer.cpp
     ${CMAKE_SOURCE_DIR}/src/core/window/Window.cpp
+    ${CMAKE_SOURCE_DIR}/src/imgui/ImGuiUtil.cpp
 
   PUBLIC
     FILE_SET HEADERS
@@ -27,6 +28,7 @@ target_sources(vksim
       ${CMAKE_SOURCE_DIR}/include
     FILES
       ${CMAKE_SOURCE_DIR}/include/vksim/utility/Logging.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/imgui/ImGuiUtil.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/slang/SlangCompiler.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/buffers/Buffer.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/buffers/Image.hpp
@@ -48,7 +50,7 @@ target_sources(vksim
       ${CMAKE_SOURCE_DIR}/include/vksim/core/window/Window.hpp
 )
 
-target_sources(vksim PUBLIC
+target_sources(vksim PRIVATE
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -56,11 +58,13 @@ target_sources(vksim PUBLIC
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+    ${imguizmo_SOURCE_DIR}/src/ImGuizmo.cpp
 )
 
 target_include_directories(vksim PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
+  ${imguizmo_SOURCE_DIR}/src
 )
 
 target_compile_definitions(vksim 

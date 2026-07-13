@@ -31,7 +31,6 @@ struct Camera
 public:
   struct Params
   {
-
     alignas(CameraAlignment) glm::mat4 view{glm::mat4(1.0F)};
     alignas(CameraAlignment) glm::mat4 proj{glm::mat4(1.0F)};
     alignas(CameraAlignment) glm::vec3 cameraPos{glm::vec3(0.0F, 0.0F, 0.0F)};
