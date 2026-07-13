@@ -13,7 +13,7 @@ namespace vksim
  */
 struct BufferCreateInfo
 {
-  vk::DeviceSize size;
+  vk::DeviceSize size{0};
   vk::BufferUsageFlags usage;
   vk::MemoryPropertyFlags properties;
 };

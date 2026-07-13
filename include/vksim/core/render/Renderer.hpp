@@ -1,15 +1,16 @@
 #pragma once
-
-#include "vksim/core/buffers/Image.hpp"
 #include <deque>
 #include <unordered_map>
 #include <unordered_set>
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <vulkan/vulkan_raii.hpp>
 
+#include "vksim/core/buffers/Image.hpp"
 #include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/render/Swapchain.hpp"
 #include "vksim/core/scene/Scene.hpp"
+#include "vksim/imgui/ImGuiUtil.hpp"
 
 namespace vksim
 {
@@ -65,6 +66,7 @@ private:
   auto createGraphicsPipeline() -> void;
   auto extractUniqueMaterialsAndTextures() -> void;
   auto updateSceneDataForCurrentFrame() -> void;
+  auto prepareImGui() -> void;
 
   [[nodiscard]] auto createShaderModule(const std::vector<char> &code) const
       -> vk::raii::ShaderModule;
@@ -72,6 +74,8 @@ private:
   VulkanContext &m_context;
   Scene &m_scene;
   QueueHandle &m_queueHandle;
+
+  std::unique_ptr<vksim::ImGui::ImGuiRenderer> m_imguiRenderer{nullptr};
 
   uint32_t m_framesInFlight{1};
   uint32_t m_currentFrame{0};

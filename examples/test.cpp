@@ -1,4 +1,5 @@
-#include "vksim/core/resources/Material.hpp"
+#include "glm/ext/scalar_constants.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -8,12 +9,15 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+
+#define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/hash.hpp>
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
@@ -22,21 +26,12 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include "vksim/core/buffers/Image.hpp"
-#include "vksim/core/context/CommandPool.hpp"
 #include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/render/Renderer.hpp"
-#include "vksim/core/render/Swapchain.hpp"
-#include "vksim/core/resources/Material.hpp"
-#include "vksim/core/resources/Mesh.hpp"
 #include "vksim/core/resources/ResourceManager.hpp"
-#include "vksim/core/resources/Texture.hpp"
 #include "vksim/core/scene/Camera.hpp"
 #include "vksim/core/scene/Scene.hpp"
-#include "vksim/core/scene/SceneObject.hpp"
 #include "vksim/core/window/Window.hpp"
-#include "vksim/slang/SlangCompiler.hpp"
-#include "vksim/utility/Error.hpp"
 #include "vksim/utility/Logging.hpp"
 
 constexpr uint32_t WIDTH = 800;
@@ -149,6 +144,7 @@ auto main() -> int
   auto &camera = scene.addCamera();
 
   auto &spotLight = scene.addSpotLight();
+  auto &spotLight2 = scene.addSpotLight();
   auto &pointLight = scene.addPointLight();
 
   auto &ball = scene.addObject();
@@ -172,15 +168,15 @@ auto main() -> int
   floor.setVisible(true);
 
   floor.transform({.position = glm::vec3(0.F, 0.F, 0.F),
-                   .rotation = glm::vec3(0.0F, 0.0F, 0.0F),
+                   .rotation = glm::quat(glm::eulerAngleXYZ(0.0F, 0.0F, 0.0F)),
                    .scale = glm::vec3(10.0F, 10.0F, 10.0F)});
 
   bunny.transform({.position = glm::vec3(0.F, -4.0F, 0.0F),
-                   .rotation = glm::vec3(90.0F, 0.0F, 0.0F),
+                   .rotation = glm::quat(glm::eulerAngleXYZ(glm::pi<float>() / 2.0F, 0.0F, 0.0F)),
                    .scale = glm::vec3(15.0F, 15.0F, 15.0F)});
 
   ball.transform({.position = glm::vec3(0.F, 4.F, 1.0F),
-                  .rotation = glm::vec3(0.0F, 0.0F, 0.0F),
+                  .rotation = glm::quat(glm::eulerAngleXYZ(0.0F, 0.0F, 0.0F)),
                   .scale = glm::vec3(1.0F, 1.0F, 1.0F)});
 
   camera.transform({.width = WIDTH,
@@ -195,13 +191,13 @@ auto main() -> int
   spotLight.transform({.position = glm::vec3(0.0F, 0.0F, 5.0F),
                        .direction = glm::vec3(0.0F, 0.0F, -1.0F),
                        .color = glm::vec3(1.0F, 1.0F, 1.0F),
-                       .innerCone = glm::radians(45.0F),
-                       .outerCone = glm::radians(80.0F),
-                       .intensity = 10.0F});
+                       .intensity = 10.0F,
+                       .innerCone = glm::radians(30.0F),
+                       .outerCone = glm::radians(60.0F)});
 
   pointLight.transform({.position = glm::vec3(5.0F, 5.0F, 5.0F),
                         .color = glm::vec3(1.0F, 1.0F, 1.0F),
-                        .intensity = 10.0F});
+                        .intensity = 0.0F});
 
   // Create a renderer with the Vulkan context and the scene
   auto renderer = vksim::Renderer(context, scene, graphicsQueue, MAX_FRAMES_IN_FLIGHT);
@@ -209,17 +205,6 @@ auto main() -> int
   while (!window.shouldClose())
   {
     vksim::Window::pollEvents();
-
-    // curcular camera movement around the scene
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time =
-        std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    camera.transform(
-        {.position = glm::vec3(sin(time * 0.5F) * 5.0F, cos(time * 0.5F) * 5.0F, 5.5F)});
-    pointLight.transform(
-        {.position = glm::vec3(sin(time * 0.5F) * 5.0F, cos(time * 0.5F) * 5.0F, 5.0F)});
-
     renderer.drawFrame();
   }
   context.getDevice().logical().waitIdle();

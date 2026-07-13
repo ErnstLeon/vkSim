@@ -138,6 +138,13 @@ public:
    * @brief Returns the Vulkan surface.
    * @return Reference to the Vulkan surface.
    */
+  [[nodiscard]]
+  auto getInstance() const -> const vk::raii::Instance &;
+
+  /**
+   * @brief Returns the Vulkan surface.
+   * @return Reference to the Vulkan surface.
+   */
   [[nodiscard]] auto getSurface() const -> const vk::raii::SurfaceKHR &;
 
   /**

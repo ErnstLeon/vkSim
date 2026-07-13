@@ -1,9 +1,11 @@
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/matrix.hpp"
 #include <utility>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 #include "vksim/core/scene/SceneObject.hpp"
 
@@ -47,20 +49,20 @@ auto SceneObject::getMaterial() const -> std::expected<Material *, std::string>
 
 auto SceneObject::transform(const Transform &transform) -> void
 {
-  auto model = glm::mat4(1.0F);
+  m_transform = transform;
 
-  model = glm::translate(model, transform.position);
-  model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0F, 0.0F, 0.0F));
-  model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0F, 1.0F, 0.0F));
-  model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0F, 0.0F, 1.0F));
+  // Build the transformation matrix from the position, rotation, and scale of the object. The
+  // transformation matrix is constructed in the order of translation, rotation (X, Y, Z), and
+  // scale.
+  glm::mat4 rotation = glm::mat4_cast(transform.rotation);
+  glm::mat4 model = glm::translate(glm::mat4(1.0F), transform.position) * rotation *
+                    glm::scale(glm::mat4(1.0F), transform.scale);
 
-  model = glm::scale(model, transform.scale);
-
-  // Transpose the model matrix to match Vulkan's column-major order
-  model = glm::transpose(model);
-
-  m_modelMatrix = model;
+  // Transpose the model matrix to match Vulkan's column-major order.
+  m_modelMatrix = glm::transpose(model);
 }
+
+auto SceneObject::getTransform() const -> const Transform & { return m_transform; }
 
 auto SceneObject::getModelMatrix() const -> const glm::mat4 & { return m_modelMatrix; }
 
