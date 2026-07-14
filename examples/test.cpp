@@ -77,16 +77,6 @@ auto main() -> int
                        },
                }});
 
-  // Request a graphics queue and a compute queue from the Vulkan context
-  auto &graphicsQueue = context.requestQueue(
-      {.requiredFlags = vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer,
-       .requiresPresent = true});
-
-  // Request a compute queue from the Vulkan context
-  auto &computeQueue = context.requestQueue(
-      {.requiredFlags = vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer,
-       .requiresPresent = false});
-
   // Build the Vulkan context, which creates the Vulkan instance, selects a physical device, creates
   // a logical device, and sets up the swap chain and command pool and allocates the requested
   // queues.
@@ -100,40 +90,40 @@ auto main() -> int
   uploadContext.begin();
 
   // Load a mesh and a texture using the resource manager
-  resourceManager.Load<vksim::Mesh>("floor_mesh", context, uploadContext,
+  resourceManager.load<vksim::Mesh>("floor_mesh", context, uploadContext,
                                     PROJECT_SOURCE_DIR "/assets/meshes/floor.obj");
 
-  resourceManager.Load<vksim::Texture>("floor_texture", context, uploadContext,
+  resourceManager.load<vksim::Texture>("floor_texture", context, uploadContext,
                                        PROJECT_SOURCE_DIR "/assets/textures/floor.png");
 
-  resourceManager.Load<vksim::Mesh>("ball_mesh", context, uploadContext,
+  resourceManager.load<vksim::Mesh>("ball_mesh", context, uploadContext,
                                     PROJECT_SOURCE_DIR "/assets/meshes/ball.obj");
 
-  resourceManager.Load<vksim::Mesh>("teapot_mesh", context, uploadContext,
+  resourceManager.load<vksim::Mesh>("teapot_mesh", context, uploadContext,
                                     PROJECT_SOURCE_DIR "/assets/meshes/utah_teapot.obj");
 
-  resourceManager.Load<vksim::Mesh>("bunny_mesh", context, uploadContext,
+  resourceManager.load<vksim::Mesh>("bunny_mesh", context, uploadContext,
                                     PROJECT_SOURCE_DIR "/assets/meshes/bunny.obj");
   // Load material one
   {
     vksim::MaterialInfo materialInfo{
         .m_baseColor = glm::vec3(0.0F, 0.0F, 1.0F), .m_metallic = 0.0F, .m_roughness = 0.1F};
 
-    resourceManager.Load<vksim::Material>("material_1", context, uploadContext, materialInfo);
+    resourceManager.load<vksim::Material>("material_1", context, uploadContext, materialInfo);
   }
   // Load material two
   {
     vksim::MaterialInfo materialInfo{
         .m_baseColor = glm::vec3(0.0F, 1.0F, 0.0F), .m_metallic = 0.0F, .m_roughness = 0.4F};
 
-    resourceManager.Load<vksim::Material>("material_2", context, uploadContext, materialInfo);
+    resourceManager.load<vksim::Material>("material_2", context, uploadContext, materialInfo);
   }
   // Load material three
   {
     vksim::MaterialInfo materialInfo{
         .m_baseColor = glm::vec3(1.0F, 0.0F, 0.0F), .m_metallic = 0.7F, .m_roughness = 0.1F};
 
-    resourceManager.Load<vksim::Material>("material_3", context, uploadContext, materialInfo);
+    resourceManager.load<vksim::Material>("material_3", context, uploadContext, materialInfo);
   }
 
   // Submit the upload context and wait for completion
@@ -200,7 +190,7 @@ auto main() -> int
                         .intensity = 0.0F});
 
   // Create a renderer with the Vulkan context and the scene
-  auto renderer = vksim::Renderer(context, scene, graphicsQueue, MAX_FRAMES_IN_FLIGHT);
+  auto renderer = vksim::Renderer(context, scene, MAX_FRAMES_IN_FLIGHT);
 
   while (!window.shouldClose())
   {

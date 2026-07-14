@@ -38,50 +38,105 @@ public:
   /** @brief Constructs a Renderer with the specified Vulkan context, scene, and queue handle.
    * @param context The Vulkan context.
    * @param scene The scene to be rendered.
-   * @param queueHandle The handle to the Vulkan queue.
    * @param framesInFlight The number of frames that can be processed concurrently.
+   * @param enableImGui Flag to enable or disable ImGui rendering.
    */
-  Renderer(VulkanContext &context, Scene &scene, QueueHandle &queueHandle,
-           uint32_t framesInFlight = 1);
+  Renderer(VulkanContext &context, Scene &scene, uint32_t framesInFlight = 1,
+           bool enableImGui = true);
 
   /** @brief Renders a frame. */
   auto drawFrame() -> void;
   [[nodiscard]] auto getExtent() const -> vk::Extent2D { return m_swapchain.getExtent(); }
 
 private:
+  /** @brief Creates the descriptor pool. */
   auto createDescriptorPool() -> void;
+
+  /** @brief Creates the descriptor set layouts. */
   auto createDescriptorSetLayouts() -> void;
+
+  /** @brief Creates the descriptor sets. */
   auto createDescriptorSets() -> void;
+
+  /** @brief Creates the graphics pipeline. */
   auto createCommandBuffers() -> void;
+
+  /** @brief Records the command buffer for the specified image index and frame index. */
   auto recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
                            vk::raii::CommandBuffer &commandBuffer) -> void;
+
+  /** @brief Creates the swapchain. */
   auto createSwapchain() -> void;
+
+  /** @brief Recreates the swapchain and associated resources. */
   auto recreateSwapchain() -> void;
+
+  /** @brief Creates the synchronization objects. */
   auto createSyncObjects() -> void;
+
+  /** @brief Creates the resources for the scene. Those are host-visible and host-coherent buffers
+   * for each frame in flight. This allows for fast CPU-side updates.
+   */
   auto createSceneResources() -> void;
+
+  /** @brief Creates the resources for the camera. Those are host-visible and host-coherent buffers
+   * for each frame in flight. This allows for fast CPU-side updates.
+   */
   auto createCameraResources() -> void;
+
+  /** @brief Creates the resources for the lights. Those are host-visible and host-coherent buffers
+   * for each frame in flight. This allows for fast CPU-side updates.
+   */
   auto createLightResources() -> void;
+
+  /** @brief Creates the depth resources. Those are images and image views used for depth testing.
+   */
   auto createDepthResources() -> void;
+
+  /** @brief Creates the color resources. Those are images and image views used for color
+   * attachments, necessary for MSAA.
+   */
   auto createColorResources() -> void;
+
+  /** @brief Creates the graphics pipeline. */
   auto createGraphicsPipeline() -> void;
+
+  /** @brief Extracts the unique materials and textures from the scene. This helps in reducing
+   * redundant resource creation and improves performance. Materials and textures will be boundes as
+   * descriptor arrays to the graphics pipeline, and the indices of the materials and textures in
+   * these arrays will be used as IDs in the ObjectDescriptor struct to associate each scene object
+   * with its corresponding material and texture.
+   */
   auto extractUniqueMaterialsAndTextures() -> void;
+
+  /** @brief Updates the scene data for the current frame. This includes updating the uniform
+   * buffers for the scene information, camera, and lights.
+   */
   auto updateSceneDataForCurrentFrame() -> void;
+
+  /** @brief Prepares the ImGui renderer. */
   auto prepareImGui() -> void;
 
+  /** @brief Creates a shader module from the given SPIR-V code.
+   * @param code The SPIR-V code for the shader.
+   * @return The created shader module.
+   */
   [[nodiscard]] auto createShaderModule(const std::vector<char> &code) const
       -> vk::raii::ShaderModule;
 
+  // Reference to the Vulkan context and scene.
   VulkanContext &m_context;
   Scene &m_scene;
-  QueueHandle &m_queueHandle;
 
-  std::unique_ptr<vksim::ImGui::ImGuiRenderer> m_imguiRenderer{nullptr};
+  // Owning the swapchain, as it is tightly coupled with the renderer and its resources.
+  Swapchain m_swapchain;
 
   uint32_t m_framesInFlight{1};
   uint32_t m_currentFrame{0};
 
-  Swapchain m_swapchain;
+  std::optional<vksim::ImGui::ImGuiRenderer> m_imguiRenderer{std::nullopt};
 
+  // Depth and color resources for the swapchain images.
   std::optional<Image> m_depthImage;
   std::optional<Image> m_colorImage;
 
@@ -102,7 +157,10 @@ private:
 
   /** @brief Buffers and mapped memory for the light uniform buffers for each frame in flight. The
    * light's uniform buffers will be updated each frame with the light's properties. The buffers are
-   * HostVisible and HostCoherent to allow for CPU-side updates.
+   * HostVisible and HostCoherent to allow for CPU-side updates. There will be one buffer per frame
+   * in flight for each type of light (directional, point, and spot). Each buffer will contain an
+   * array of light properties for all lights of that type in the scene. The mapped memory pointers
+   * will be used to update the buffers with the latest light data each frame.
    */
   std::vector<Buffer> m_directionalLightBuffers;
   std::vector<void *> m_directionalLightBuffersMapped;
@@ -147,6 +205,9 @@ private:
   vk::raii::PipelineLayout m_pipelineLayout = nullptr;
   vk::raii::Pipeline m_graphicsPipeline = nullptr;
 
+  // Command buffers for each frame in flight. Each command buffer records the rendering commands
+  // for a single frame, including binding the graphics pipeline, descriptor sets, and drawing the
+  // scene objects. The command buffers are submitted to the graphics queue for execution.
   std::vector<vk::raii::CommandBuffer> m_commandBuffers;
   std::vector<vk::raii::Semaphore> m_imageAvailableSemaphores;
   std::vector<vk::raii::Semaphore> m_renderFinishedSemaphores;

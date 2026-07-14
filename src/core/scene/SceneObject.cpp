@@ -26,7 +26,7 @@ auto SceneObject::getMesh() const -> std::expected<Mesh *, std::string>
     return std::unexpected("Mesh id is not set for scene object");
   }
 
-  return m_resourceManager.GetResource<Mesh>(m_meshId);
+  return m_resourceManager.getResource<Mesh>(m_meshId);
 }
 
 auto SceneObject::setTexture(const std::string &textureId) -> void { m_textureId = textureId; }
@@ -35,7 +35,7 @@ auto SceneObject::getTextureId() const -> const std::string & { return m_texture
 
 auto SceneObject::getTexture() const -> std::expected<Texture *, std::string>
 {
-  return m_resourceManager.GetResource<Texture>(m_textureId);
+  return m_resourceManager.getResource<Texture>(m_textureId);
 }
 
 auto SceneObject::setMaterial(const std::string &materialId) -> void { m_materialId = materialId; }
@@ -44,7 +44,7 @@ auto SceneObject::getMaterialId() const -> const std::string & { return m_materi
 
 auto SceneObject::getMaterial() const -> std::expected<Material *, std::string>
 {
-  return m_resourceManager.GetResource<Material>(m_materialId);
+  return m_resourceManager.getResource<Material>(m_materialId);
 }
 
 auto SceneObject::transform(const Transform &transform) -> void

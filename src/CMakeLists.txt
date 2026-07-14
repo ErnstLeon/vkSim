@@ -47,6 +47,7 @@ target_sources(vksim
       ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Material.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/render/Swapchain.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/render/Renderer.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/queue/Queue.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/window/Window.hpp
 )
 

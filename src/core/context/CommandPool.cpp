@@ -16,7 +16,7 @@ CommandPool::CommandPool(VulkanContext &context, const CommandPoolCreateInfo &cr
   m_commandPool = vk::raii::CommandPool(m_context.getDevice().logical(), poolInfo);
 }
 
-auto CommandPool::allocateCommandBuffers(const BufferAllocationInfo &allocInfo) const
+auto CommandPool::allocateCommandBuffers(const CommandBufferAllocationInfo &allocInfo) const
     -> std::vector<vk::raii::CommandBuffer>
 {
   vk::CommandBufferAllocateInfo commandBufferAllocInfo{.commandPool = *m_commandPool,

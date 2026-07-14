@@ -13,8 +13,8 @@ UploadContext::UploadContext(VulkanContext &context) : m_context(context) {}
 
 auto UploadContext::begin() -> void
 {
-  // Allocate a command buffer from the command pool associated with the default queue
-  const auto &defaultQueue = m_context.getDefaultQueue();
+  // Allocate a command buffer from the command pool associated with the default transfer queue
+  const auto &defaultQueue = m_context.getDefaultTransferQueue();
   const auto &commandPool = m_context.getCommandPool(defaultQueue.familyIndex);
 
   vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool.get(),
@@ -41,9 +41,9 @@ auto UploadContext::submitAndWait() -> void
 
   // Submit the command buffer to the default queue and wait for it to finish
   vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*m_commandBuffer};
-  const auto &defaultQueue = m_context.getDefaultQueue();
-  defaultQueue.queue.submit(submitInfo, nullptr);
-  defaultQueue.queue.waitIdle();
+  const auto &defaultQueue = m_context.getDefaultTransferQueue();
+  defaultQueue.vkQueue.submit(submitInfo, nullptr);
+  defaultQueue.vkQueue.waitIdle();
 
   spdlog::info("UploadContext: Command buffer submitted and completed, {} staging buffers released "
                "(2 per Mesh, 1 per Texture, 1 per Material)",

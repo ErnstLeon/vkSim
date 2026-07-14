@@ -1633,8 +1633,8 @@ void ImGuiRenderer::initImGui()
   initInfo.Instance = *m_context.getInstance();
   initInfo.PhysicalDevice = *m_context.getDevice().physical();
   initInfo.Device = *m_context.getDevice().logical();
-  initInfo.QueueFamily = m_context.getDefaultQueue().familyIndex;
-  initInfo.Queue = *m_context.getDefaultQueue().queue;
+  initInfo.QueueFamily = m_context.getDefaultGraphicsQueue().familyIndex;
+  initInfo.Queue = *m_context.getDefaultGraphicsQueue().vkQueue;
   initInfo.DescriptorPool = *m_descriptorPool;
   const auto swapImageCount = static_cast<uint32_t>(m_swapchain.getImages().size());
   initInfo.MinImageCount = swapImageCount;
@@ -1718,16 +1718,9 @@ auto ImGuiRenderer::recordCommandBuffer(vk::raii::CommandBuffer &commandBuffer, 
   // End dynamic rendering
   commandBuffer.endRendering();
 
-  m_swapchain.transitionLayout(imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
-                               vk::ImageLayout::ePresentSrcKHR,
-                               vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-                               {},                                                 // dstAccessMask
-                               vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                               vk::PipelineStageFlagBits2::eBottomOfPipe,          // dstStage
-                               vk::ImageAspectFlagBits::eColor, commandBuffer);
-
-  // End command buffer recording
-  commandBuffer.end();
+  // No End CommandBuffer call here, as the command buffer will be ended after this function is
+  // called. The final swapchain image transition will also be handled by the main command buffer
+  // recording.
 }
 
 auto ImGuiRenderer::update() -> void
