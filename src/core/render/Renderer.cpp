@@ -54,7 +54,7 @@ Renderer::Renderer(VulkanContext &context, Scene &scene, uint32_t framesInFlight
 
 auto Renderer::prepareImGui() -> void
 {
-  m_imguiRenderer.emplace(m_context, m_swapchain, m_scene);
+  m_imguiRenderer.emplace(m_context, m_swapchain, m_scene, m_framesInFlight);
   m_imguiRenderer->init();
 }
 
@@ -278,12 +278,14 @@ auto Renderer::createColorResources() -> void
 
 auto Renderer::createDescriptorPool() -> void
 {
-  std::array<vk::DescriptorPoolSize, 4> poolSize{
+  std::array<vk::DescriptorPoolSize, 5> poolSize{
+      // One descriptor for the scene uniform buffer for each frame in flight.
       // One descriptor for the camera uniform buffer for each frame in flight.
       // One descriptor for each light storage buffer for each frame in flight.
       // One descriptor for each unique combined image sampler (texture) in the scene.
       // One descriptor for each unique uniform buffer (material) in the scene.
       {
+          {.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = m_framesInFlight},
           {.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = m_framesInFlight},
           {.type = vk::DescriptorType::eStorageBuffer,
            .descriptorCount =
@@ -954,6 +956,7 @@ auto Renderer::updateSceneDataForCurrentFrame() -> void
 
 auto Renderer::drawFrame() -> void
 {
+  // Update the scene data for the current frame before rendering
   updateSceneDataForCurrentFrame();
 
   // Get current frame's synchronization objects and command buffer

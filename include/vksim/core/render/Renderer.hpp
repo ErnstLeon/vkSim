@@ -48,6 +48,9 @@ public:
   auto drawFrame() -> void;
   [[nodiscard]] auto getExtent() const -> vk::Extent2D { return m_swapchain.getExtent(); }
 
+  /** @brief Returns the number of frames that can be processed concurrently. */
+  [[nodiscard]] auto getFramesInFlight() const -> uint32_t { return m_framesInFlight; }
+
 private:
   /** @brief Creates the descriptor pool. */
   auto createDescriptorPool() -> void;

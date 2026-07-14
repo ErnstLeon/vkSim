@@ -39,8 +39,13 @@ public:
    *  @param context Reference to the Vulkan context for resource management.
    *  @param swapchain Reference to the swapchain for rendering ImGui.
    *  @param scene Reference to the scene for ImGui rendering.
+   *  @param framesInFlight Number of frames that can be processed concurrently (optionally, is
+   * needed for ImGui to create the correct number of buffers, if not given, the number is set to
+   * the number of swapchain images. This can cause issues if the number of frames in flight does
+   * exceed the swapchain image count.)
    */
-  ImGuiRenderer(VulkanContext &context, Swapchain &swapchain, Scene &scene);
+  ImGuiRenderer(VulkanContext &context, Swapchain &swapchain, Scene &scene,
+                std::optional<uint32_t> framesInFlight = std::nullopt);
   ~ImGuiRenderer();
 
   // Core functionality methods for ImGui integration
@@ -72,6 +77,8 @@ private:
   VulkanContext &m_context; // Reference to the Vulkan context for resource management
   Swapchain &m_swapchain;   // Reference to the swapchain for rendering ImGui
   Scene &m_scene;           // Reference to the scene for ImGui rendering
+  std::optional<uint32_t>
+      m_framesInFlight; // Optional number of frames in flight for ImGui rendering
 
   int m_framebufferWidth{0};                  // Width of the framebuffer for ImGui rendering
   int m_framebufferHeight{0};                 // Height of the framebuffer for ImGui rendering

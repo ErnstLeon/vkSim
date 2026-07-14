@@ -89,6 +89,8 @@ public:
   [[nodiscard]] auto getSurfaceFormat() const -> const vk::SurfaceFormatKHR &;
   [[nodiscard]] auto getExtent() const -> const vk::Extent2D &;
   [[nodiscard]] auto getImageViews() const -> const std::vector<vk::raii::ImageView> &;
+  [[nodiscard]] auto getMinImageCount() const -> uint32_t;
+  [[nodiscard]] auto getMaxImageCount() const -> uint32_t;
 
 private:
   /**

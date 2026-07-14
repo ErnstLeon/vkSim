@@ -1517,8 +1517,9 @@ void setupEditorStyle()
 // ImGuiRenderer Implementation
 ///////////////////////////////////////////////////////
 
-ImGuiRenderer::ImGuiRenderer(VulkanContext &context, Swapchain &swapchain, Scene &scene)
-    : m_context(context), m_swapchain(swapchain), m_scene(scene)
+ImGuiRenderer::ImGuiRenderer(VulkanContext &context, Swapchain &swapchain, Scene &scene,
+                             std::optional<uint32_t> framesInFlight)
+    : m_context(context), m_swapchain(swapchain), m_scene(scene), m_framesInFlight(framesInFlight)
 {
 }
 
@@ -1636,9 +1637,21 @@ void ImGuiRenderer::initImGui()
   initInfo.QueueFamily = m_context.getDefaultGraphicsQueue().familyIndex;
   initInfo.Queue = *m_context.getDefaultGraphicsQueue().vkQueue;
   initInfo.DescriptorPool = *m_descriptorPool;
-  const auto swapImageCount = static_cast<uint32_t>(m_swapchain.getImages().size());
-  initInfo.MinImageCount = swapImageCount;
-  initInfo.ImageCount = swapImageCount;
+  // If the number of frames in flight exceeds the number of swapchain images,
+  // it may cause issues when only creating as many buffers as swapchain images.
+  // This would mean we would reuse buffers in recording command buffers, while still in use by
+  // other command buffers, which could lead to synchronization issues.
+  // NOTE: This is not optimal, maybe just create as many images as frames in flight.
+  if (m_framesInFlight.has_value())
+  {
+    initInfo.ImageCount = *m_framesInFlight;
+    initInfo.MinImageCount = *m_framesInFlight;
+  }
+  else
+  {
+    initInfo.ImageCount = m_swapchain.getImages().size();
+    initInfo.MinImageCount = m_swapchain.getMinImageCount();
+  }
   initInfo.PipelineInfoMain.RenderPass = nullptr; // Will be set later during rendering
   initInfo.PipelineInfoMain.Subpass = 0;
   initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
@@ -1673,6 +1686,9 @@ auto ImGuiRenderer::recreateWithSwapchain() -> void
 
 void ImGuiRenderer::destroy()
 {
+  // Wait for the device to be idle before destroying ImGui resources and the descriptor pool
+  m_context.getDevice().logical().waitIdle();
+
   // Cleanup ImGui resources
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();

@@ -126,6 +126,18 @@ auto Swapchain::transitionLayout(uint32_t imageIndex, vk::ImageLayout old_layout
   return m_swapChainImageViews;
 }
 
+[[nodiscard]] auto Swapchain::getMinImageCount() const -> uint32_t
+{
+  return m_createInfo.imageCount;
+}
+
+[[nodiscard]] auto Swapchain::getMaxImageCount() const -> uint32_t
+{
+  vk::SurfaceCapabilitiesKHR surfaceCapabilities =
+      m_context.getDevice().physical().getSurfaceCapabilitiesKHR(m_context.getSurface());
+  return surfaceCapabilities.maxImageCount;
+}
+
 auto Swapchain::chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &surfaceCapabilities,
                                  const vksim::Window &window) -> vk::Extent2D
 {
