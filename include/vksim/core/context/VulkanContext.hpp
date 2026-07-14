@@ -1,7 +1,5 @@
 #pragma once
 
-#include "vksim/core/device/Device.hpp"
-#include "vulkan/vulkan.hpp"
 #include <deque>
 #include <expected>
 #include <memory>
@@ -16,6 +14,7 @@
 #include "vksim/core/context/CommandPool.hpp"
 #include "vksim/core/context/DeviceSelector.hpp"
 #include "vksim/core/device/Device.hpp"
+#include "vksim/core/queue/Queue.hpp"
 #include "vksim/core/window/Window.hpp"
 
 namespace vksim
@@ -58,28 +57,6 @@ struct ContextCreateInfo
 };
 
 /**
- * @brief Structure to represent a queue handle, including family index,
- *        queue index, and the Vulkan queue object.
- */
-struct QueueHandle
-{
-  uint32_t familyIndex{};
-  uint32_t queueIndex{};
-  vk::raii::Queue queue{nullptr};
-
-  explicit QueueHandle(uint32_t family, uint32_t index, vk::raii::Queue queue)
-      : familyIndex(family), queueIndex(index), queue(std::move(queue))
-  {
-  }
-
-  QueueHandle(const QueueHandle &) = delete;
-  QueueHandle(QueueHandle &&) noexcept = default;
-
-  auto operator=(const QueueHandle &) -> QueueHandle & = delete;
-  auto operator=(QueueHandle &&) -> QueueHandle & = default;
-};
-
-/**
  * @brief VulkanContext class encapsulates the Vulkan context and manages
  *        Vulkan resources.
  * @note The VulkanContext owns the Vulkan instance, physical device, logical device, queues,
@@ -99,7 +76,6 @@ public:
    */
   VulkanContext(Window &window, ContextCreateInfo createInfo);
 
-  ~VulkanContext();
   VulkanContext(VulkanContext *) = delete;
   auto operator=(VulkanContext *) -> VulkanContext & = delete;
 
@@ -120,7 +96,7 @@ public:
    * @param request Structure containing information for requesting a queue.
    * @return Returns a reference to the requested queue handle.
    */
-  [[nodiscard]] auto requestQueue(const QueueRequest &request) -> QueueHandle &;
+  [[nodiscard]] auto requestQueue(const QueueRequest &request) -> Queue &;
 
   /**
    * @brief Returns the Vulkan logical device.
@@ -154,6 +130,13 @@ public:
   [[nodiscard]] auto getWindow() const -> const vksim::Window &;
 
   /**
+   * @brief Returns the GLFW window associated with the Vulkan context.
+   * @return Pointer to the GLFW window.
+   */
+  [[nodiscard]]
+  auto getGLFWwindow() const -> GLFWwindow *;
+
+  /**
    * @brief Returns the highest MSAA sample count supported for both color and depth attachments.
    */
   [[nodiscard]] auto getMaxUsableSampleCount() const -> vk::SampleCountFlagBits;
@@ -168,11 +151,25 @@ public:
   [[nodiscard]] auto getCommandPool(uint32_t familyIndex) const -> const CommandPool &;
 
   /**
-   * @brief Return the queue handle of the default queue (first requested queue).
-   * @return Reference to the default queue handle.
+   * @brief Return the queue of the default graphics queue (first requested graphics queue).
+   * @return Reference to the default queue.
    */
   [[nodiscard]]
-  auto getDefaultQueue() const -> const QueueHandle &;
+  auto getDefaultGraphicsQueue() const -> const Queue &;
+
+  /**
+   * @brief Return the queue of the default compute queue (first requested compute queue).
+   * @return Reference to the default queue.
+   */
+  [[nodiscard]]
+  auto getDefaultComputeQueue() const -> const Queue &;
+
+  /**
+   * @brief Return the queue of the default transfer queue (first requested transfer queue).
+   * @return Reference to the default queue.
+   */
+  [[nodiscard]]
+  auto getDefaultTransferQueue() const -> const Queue &;
 
 private:
   /**
@@ -215,6 +212,16 @@ private:
   /** @brief Creates a command pool for each queue family used by the logical device. */
   auto createCommandPool() -> void;
 
+  // Vulkan resources and context information
+  vk::raii::Context m_context;
+  vksim::Window &m_window;
+  vk::raii::Instance m_instance = nullptr;
+  vk::raii::DebugUtilsMessengerEXT m_debugMessenger = nullptr;
+  vk::raii::SurfaceKHR m_surface = nullptr;
+  vksim::Device m_device;
+
+  ContextCreateInfo m_createInfo;
+
   /** @brief Vector of queue requests made to the Vulkan context. */
   std::vector<QueueRequest> m_queueRequests;
 
@@ -223,21 +230,12 @@ private:
    * remain valid for the lifetime of the context. Use std::unique_ptr for queue handles to be able
    * to return stable references when adding new queues.
    */
-  std::vector<std::unique_ptr<QueueHandle>> m_queues;
+  std::vector<std::unique_ptr<Queue>> m_queues;
 
   /** @brief Map of command pools, one for each queue family. The map is keyed by
    * the queue family index. Owns the command pool objects and ensures they remain valid for the
    * lifetime of the context.
    */
   std::unordered_map<uint32_t, CommandPool> m_commandPools;
-
-  vk::raii::Context m_context;
-  vk::raii::Instance m_instance = nullptr;
-  vksim::Device m_device;
-  vk::raii::SurfaceKHR m_surface = nullptr;
-  vk::raii::DebugUtilsMessengerEXT m_debugMessenger = nullptr;
-
-  ContextCreateInfo m_createInfo;
-  vksim::Window &m_window;
 };
 } // namespace vksim

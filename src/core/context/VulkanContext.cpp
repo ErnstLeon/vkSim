@@ -24,107 +24,51 @@ namespace vksim
 VulkanContext::VulkanContext(vksim::Window &window, ContextCreateInfo createInfo)
     : m_createInfo(std::move(createInfo)), m_window(window)
 {
-}
+  // Request (if possible) dedicated queues for graphics, compute and transfer operations. The
+  // requested queues will be stored in m_queueRequests and assigned during build() when the logical
+  // device is created. After that user can request additional queues using requestQueue() and they
+  // will be assigned during build().
+  m_queueRequests.push_back(
+      {.requiredFlags = vk::QueueFlagBits::eGraphics, .requiresPresent = true});
+  m_queues.emplace_back(std::make_unique<Queue>(0, 0, nullptr));
 
-VulkanContext::~VulkanContext() { m_commandPools.clear(); }
+  m_queueRequests.push_back(
+      {.requiredFlags = vk::QueueFlagBits::eCompute, .requiresPresent = false});
+  m_queues.emplace_back(std::make_unique<Queue>(0, 0, nullptr));
+
+  m_queueRequests.push_back(
+      {.requiredFlags = vk::QueueFlagBits::eTransfer, .requiresPresent = false});
+  m_queues.emplace_back(std::make_unique<Queue>(0, 0, nullptr));
+}
 
 auto VulkanContext::build() -> void
 {
+  // Create the Vulkan instance and set up the debug messenger if validation layers are enabled
   createInstance(m_createInfo);
   setupDebugMessenger();
+
+  // Create the Vulkan surface for the window
   createSurface();
 
-  // Select a physical device and move it into m_physicalDevice. Also create a logical device and
-  // store it in m_device.
+  // Select a physical device and move it into m_physicalDevice.
   auto deviceSelection =
       DeviceSelector::pickPhysicalDevice(m_instance, m_surface, m_createInfo.device.extensions,
                                          m_createInfo.device.features, m_queueRequests);
   m_device.setPhysicalDevice(std::move(deviceSelection.physicalDevice));
 
+  // Create the logical device and move it into m_logicalDevice. The logical device will be created
+  // with the requested features, extensions, and queues. The assigned queues will be stored in
+  // m_queues and can be accessed via the handle obtained from requestQueue() after build().
   createLogicalDevice(deviceSelection);
+
+  // Create a command pool for each queue family used by the logical device. The command pools will
+  // be stored in m_commandPools and can be accessed via getCommandPool() after build().
   createCommandPool();
-}
-
-auto VulkanContext::requestQueue(const QueueRequest &request) -> QueueHandle &
-{
-  // Store the request for later processing during build()
-  m_queueRequests.push_back(request);
-
-  // Return a reference to the newly added queue handle. The actual queue will be assigned during
-  // build() when the logical device is created.
-  m_queues.emplace_back(std::make_unique<QueueHandle>(0, 0, nullptr));
-
-  return *m_queues.back();
-}
-
-auto VulkanContext::getCommandPool(uint32_t familyIndex) const -> const CommandPool &
-{
-  auto poolIt = m_commandPools.find(familyIndex);
-  if (poolIt == m_commandPools.end())
-  {
-    spdlog::error("Command pool for queue family index {} not found", familyIndex);
-    std::abort();
-  }
-
-  return poolIt->second;
-}
-
-auto VulkanContext::getDefaultQueue() const -> const QueueHandle &
-{
-  if (m_queues.empty())
-  {
-    spdlog::error("No queues available to get default queue");
-    std::abort();
-  }
-  return *m_queues[0];
-}
-
-auto VulkanContext::getDevice() -> vksim::Device & { return m_device; }
-
-auto VulkanContext::getDevice() const -> const vksim::Device & { return m_device; }
-
-auto VulkanContext::getInstance() const -> const vk::raii::Instance & { return m_instance; }
-
-auto VulkanContext::getSurface() const -> const vk::raii::SurfaceKHR & { return m_surface; }
-
-auto VulkanContext::getWindow() const -> const vksim::Window & { return m_window; }
-
-auto VulkanContext::getMaxUsableSampleCount() const -> vk::SampleCountFlagBits
-{
-  vk::PhysicalDeviceProperties physicalDeviceProperties = m_device.physical().getProperties();
-
-  vk::SampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
-                                physicalDeviceProperties.limits.framebufferDepthSampleCounts;
-  if (counts & vk::SampleCountFlagBits::e64)
-  {
-    return vk::SampleCountFlagBits::e64;
-  }
-  if (counts & vk::SampleCountFlagBits::e32)
-  {
-    return vk::SampleCountFlagBits::e32;
-  }
-  if (counts & vk::SampleCountFlagBits::e16)
-  {
-    return vk::SampleCountFlagBits::e16;
-  }
-  if (counts & vk::SampleCountFlagBits::e8)
-  {
-    return vk::SampleCountFlagBits::e8;
-  }
-  if (counts & vk::SampleCountFlagBits::e4)
-  {
-    return vk::SampleCountFlagBits::e4;
-  }
-  if (counts & vk::SampleCountFlagBits::e2)
-  {
-    return vk::SampleCountFlagBits::e2;
-  }
-
-  return vk::SampleCountFlagBits::e1;
 }
 
 void VulkanContext::createInstance(const ContextCreateInfo &createInfo)
 {
+  // Create the Vulkan instance with the specified application info.
   vk::ApplicationInfo appInfo{.pApplicationName = createInfo.instance.appName.c_str(),
                               .applicationVersion = createInfo.instance.appVersion,
                               .pEngineName = createInfo.instance.engineName.c_str(),
@@ -139,6 +83,7 @@ void VulkanContext::createInstance(const ContextCreateInfo &createInfo)
     requiredLayers.assign(createInfo.instance.layers.begin(), createInfo.instance.layers.end());
   }
 
+  // Check if the required validation layers are supported by the Vulkan implementation.
   auto layerProperties = m_context.enumerateInstanceLayerProperties();
   auto unsupportedLayerIt =
       std::ranges::find_if(requiredLayers,
@@ -161,16 +106,16 @@ void VulkanContext::createInstance(const ContextCreateInfo &createInfo)
   // Append glfw required extensions
   uint32_t glfwExtensionCount = 0;
   auto *glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
   requiredExtensions.insert(requiredExtensions.end(), glfwExtensions,
                             glfwExtensions + glfwExtensionCount);
 
-  // Append Validation Layser extension if needed
+  // Append Validation Layer extension if needed
   if (enableValidationLayers)
   {
     requiredExtensions.push_back(vk::EXTDebugUtilsExtensionName);
   }
 
+  // Check if the required extensions are supported by the Vulkan implementation.
   auto extensionProperties = m_context.enumerateInstanceExtensionProperties();
   auto unsupportedPropertyIt = std::ranges::find_if(
       requiredExtensions,
@@ -187,7 +132,7 @@ void VulkanContext::createInstance(const ContextCreateInfo &createInfo)
     std::abort();
   }
 
-  // Create Instace
+  // Create Instance
   vk::InstanceCreateInfo instanceCreateInfo{
       .flags = vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR,
       .pApplicationInfo = &appInfo,
@@ -238,6 +183,7 @@ auto VulkanContext::createLogicalDevice(const DeviceSelection &deviceSelection) 
   std::vector<std::vector<float>> queuePrioritiesPerFamily;
   queuePrioritiesPerFamily.reserve(queueFamilyCounts.size());
 
+  // Create a queue create info for each queue family
   for (const auto &[familyIndex, count] : queueFamilyCounts)
   {
     queuePrioritiesPerFamily.emplace_back(count, queuePriority);
@@ -248,6 +194,8 @@ auto VulkanContext::createLogicalDevice(const DeviceSelection &deviceSelection) 
     queueCreateInfos.push_back(queueCreateInfo);
   }
 
+  // Create the logical device with the specified features, extensions, and queues. The logical
+  // device will be stored in m_device and can be accessed via getDevice() after build().
   vk::DeviceCreateInfo deviceCreateInfo{
       .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
       .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
@@ -257,12 +205,15 @@ auto VulkanContext::createLogicalDevice(const DeviceSelection &deviceSelection) 
 
   m_device.setLogicalDevice(vk::raii::Device(m_device.physical(), deviceCreateInfo));
 
+  // The queue assignments are stored in deviceSelection.queueAssignments (familyIndex and
+  // queueIndex) and correspond to the order of the requested queues in m_queueRequests and are now
+  // assigned to the m_queues vector.
   uint32_t queueIndex = 0;
   for (const auto &request : deviceSelection.queueAssignments)
   {
     m_queues[queueIndex]->familyIndex = request.familyIndex;
     m_queues[queueIndex]->queueIndex = request.queueIndex;
-    m_queues[queueIndex]->queue =
+    m_queues[queueIndex]->vkQueue =
         m_device.logical().getQueue(request.familyIndex, request.queueIndex);
 
     // Log the assigned queue information
@@ -327,6 +278,95 @@ auto VulkanContext::setupDebugMessenger() -> void
       .messageType = messageTypeFlags,
       .pfnUserCallback = &debugCallback};
   m_debugMessenger = m_instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
+}
+
+auto VulkanContext::requestQueue(const QueueRequest &request) -> Queue &
+{
+  // Store the request for later processing during build()
+  m_queueRequests.push_back(request);
+
+  // Return a reference to the newly added queue. The actual queue will be assigned during
+  // build() when the logical device is created.
+  m_queues.emplace_back(std::make_unique<Queue>(0, 0, nullptr));
+
+  return *m_queues.back();
+}
+
+auto VulkanContext::getCommandPool(uint32_t familyIndex) const -> const CommandPool &
+{
+  auto poolIt = m_commandPools.find(familyIndex);
+  if (poolIt == m_commandPools.end())
+  {
+    spdlog::error("Command pool for queue family index {} not found", familyIndex);
+    std::abort();
+  }
+
+  return poolIt->second;
+}
+
+auto VulkanContext::getDefaultGraphicsQueue() const -> const Queue &
+{
+  // Return a reference to the first requested queue (added in build()) which is the default
+  // graphics queue.
+  return *m_queues[0];
+}
+
+auto VulkanContext::getDefaultComputeQueue() const -> const Queue &
+{
+  // Return a reference to the second requested queue (added in build()) which is the default
+  // compute queue.
+  return *m_queues[1];
+}
+
+auto VulkanContext::getDefaultTransferQueue() const -> const Queue &
+{
+  // Return a reference to the third requested queue (added in build()) which is the default
+  // transfer queue.
+  return *m_queues[2];
+}
+
+auto VulkanContext::getDevice() -> vksim::Device & { return m_device; }
+
+auto VulkanContext::getDevice() const -> const vksim::Device & { return m_device; }
+
+auto VulkanContext::getInstance() const -> const vk::raii::Instance & { return m_instance; }
+
+auto VulkanContext::getSurface() const -> const vk::raii::SurfaceKHR & { return m_surface; }
+
+auto VulkanContext::getWindow() const -> const vksim::Window & { return m_window; }
+
+auto VulkanContext::getMaxUsableSampleCount() const -> vk::SampleCountFlagBits
+{
+  vk::PhysicalDeviceProperties physicalDeviceProperties = m_device.physical().getProperties();
+
+  vk::SampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+                                physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+  if (counts & vk::SampleCountFlagBits::e64)
+  {
+    return vk::SampleCountFlagBits::e64;
+  }
+  if (counts & vk::SampleCountFlagBits::e32)
+  {
+    return vk::SampleCountFlagBits::e32;
+  }
+  if (counts & vk::SampleCountFlagBits::e16)
+  {
+    return vk::SampleCountFlagBits::e16;
+  }
+  if (counts & vk::SampleCountFlagBits::e8)
+  {
+    return vk::SampleCountFlagBits::e8;
+  }
+  if (counts & vk::SampleCountFlagBits::e4)
+  {
+    return vk::SampleCountFlagBits::e4;
+  }
+  if (counts & vk::SampleCountFlagBits::e2)
+  {
+    return vk::SampleCountFlagBits::e2;
+  }
+
+  return vk::SampleCountFlagBits::e1;
 }
 
 } // namespace vksim

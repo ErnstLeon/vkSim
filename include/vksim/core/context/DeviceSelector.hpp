@@ -6,39 +6,10 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
+#include "vksim/core/queue/Queue.hpp"
+
 namespace vksim
 {
-
-/**
- * @brief Structure to hold information about a queue family.
- */
-struct QueueFamilyInfo
-{
-  uint32_t index;
-  uint32_t count;
-  vk::QueueFlags queueFlags;
-  bool supportsPresent;
-};
-
-/**
- * @brief Structure to request a specific queue with required flags and
- *        present support.
- */
-struct QueueRequest
-{
-  vk::QueueFlags requiredFlags;
-  bool requiresPresent = false;
-};
-
-/**
- * @brief Structure to represent an assigned queue from a specific queue
- *        family.
- */
-struct QueueAssignment
-{
-  uint32_t familyIndex;
-  uint32_t queueIndex;
-};
 
 /**
  * @brief Structure to hold information about required device features.
@@ -64,11 +35,14 @@ struct DeviceSelection
   /** @brief The selected physical device.
    */
   vk::raii::PhysicalDevice physicalDevice = nullptr;
+
   /** @brief The queue families of the selected physical device.
    */
   std::vector<QueueFamilyInfo> queueFamilies;
+
   /** @brief The assigned queues (family and indices) for the requested
-   * queue configurations.
+   * queue configurations. The order of the assignments corresponds to the order of the requested
+   * queues.
    */
   std::vector<QueueAssignment> queueAssignments;
 
@@ -78,6 +52,7 @@ struct DeviceSelection
                      vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
                      vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
       featureChain;
+
   /** @brief The required device extensions for the selected physical
    *        device.
    */

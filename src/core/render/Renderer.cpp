@@ -16,15 +16,21 @@
 
 namespace vksim
 {
-Renderer::Renderer(VulkanContext &context, Scene &scene, QueueHandle &queueHandle,
-                   uint32_t framesInFlight)
-    : m_context(context), m_scene(scene), m_queueHandle(queueHandle),
-      m_framesInFlight(framesInFlight), m_swapchain(context)
+Renderer::Renderer(VulkanContext &context, Scene &scene, uint32_t framesInFlight, bool enableImGui)
+    : m_context(context), m_scene(scene), m_framesInFlight(framesInFlight), m_swapchain(context)
 {
+  // Create uniform buffers for scene, camera, and light information for each frame in flight. These
+  // buffers will be updated each frame with the latest scene, camera, and light data.
   createSceneResources();
   createCameraResources();
   createLightResources();
+
+  // Extract unique materials and textures from the scene to create descriptor sets for them.
   extractUniqueMaterialsAndTextures();
+
+  // Create the swapchain, depth and color resources, descriptor pool, descriptor set layouts, and
+  // descriptor sets. The graphics pipeline will be created after the swapchain is created, as
+  // the swapchain's image format and extent are needed for the pipeline creation.
   createSwapchain();
   createDepthResources();
   createColorResources();
@@ -33,13 +39,22 @@ Renderer::Renderer(VulkanContext &context, Scene &scene, QueueHandle &queueHandl
   createDescriptorSets();
   createGraphicsPipeline();
   createCommandBuffers();
+
+  // Create synchronization objects for each frame in flight. These will be used to synchronize the
+  // CPU and GPU, as well as the rendering of each frame.
   createSyncObjects();
-  prepareImGui();
+
+  // If ImGui is enabled, prepare the ImGui renderer. This will set up the ImGui context, create the
+  // ImGui font texture, and create the ImGui descriptor set layout and descriptor set.
+  if (enableImGui)
+  {
+    prepareImGui();
+  }
 }
 
 auto Renderer::prepareImGui() -> void
 {
-  m_imguiRenderer = std::make_unique<vksim::ImGui::ImGuiRenderer>(m_context, m_swapchain, m_scene);
+  m_imguiRenderer.emplace(m_context, m_swapchain, m_scene);
   m_imguiRenderer->init();
 }
 
@@ -108,10 +123,8 @@ auto Renderer::createLightResources() -> void
                          .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-    void *mappedMemory =
-        m_directionalLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize);
-    std::memset(mappedMemory, 0, static_cast<size_t>(bufferSize));
-    m_directionalLightBuffersMapped.emplace_back(mappedMemory);
+    m_directionalLightBuffersMapped.emplace_back(
+        m_directionalLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize));
   }
 
   m_pointLightBuffers.reserve(m_framesInFlight);
@@ -128,9 +141,8 @@ auto Renderer::createLightResources() -> void
                          .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-    void *mappedMemory = m_pointLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize);
-    std::memset(mappedMemory, 0, static_cast<size_t>(bufferSize));
-    m_pointLightBuffersMapped.emplace_back(mappedMemory);
+    m_pointLightBuffersMapped.emplace_back(
+        m_pointLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize));
   }
 
   m_spotLightBuffers.reserve(m_framesInFlight);
@@ -147,9 +159,8 @@ auto Renderer::createLightResources() -> void
                          .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-    void *mappedMemory = m_spotLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize);
-    std::memset(mappedMemory, 0, static_cast<size_t>(bufferSize));
-    m_spotLightBuffersMapped.emplace_back(mappedMemory);
+    m_spotLightBuffersMapped.emplace_back(
+        m_spotLightBuffers.back().getVkBufferMemory().mapMemory(0, bufferSize));
   }
 
   if (numDirectionalLights == 0 && numPointLights == 0 && numSpotLights == 0)
@@ -170,6 +181,7 @@ auto Renderer::extractUniqueMaterialsAndTextures() -> void
   std::unordered_map<std::string, uint32_t> materialIdMap;
   std::unordered_map<std::string, uint32_t> textureIdMap;
 
+  // Lambda function to get or add a resource (material or texture) to the uniqueResources vector.
   auto getOrAddResourceIndex = [&materialIdMap, &textureIdMap](auto &uniqueResources,
                                                                const auto &resource) -> uint32_t
   {
@@ -231,17 +243,23 @@ auto Renderer::createSwapchain() -> void
 
 auto Renderer::createDepthResources() -> void
 {
+  auto depthFormat = m_context.getDevice().findDepthFormat();
+  if (!depthFormat.has_value())
+  {
+    spdlog::error("Failed to find a supported depth format");
+    std::abort();
+  }
+
   m_depthImage.emplace(m_context.getDevice());
   m_depthImage->create({.width = m_swapchain.getExtent().width,
                         .height = m_swapchain.getExtent().height,
                         .numSamples = m_context.getMaxUsableSampleCount(),
-                        .format = m_context.getDevice().findDepthFormat().value(),
+                        .format = depthFormat.value(),
                         .tiling = vk::ImageTiling::eOptimal,
                         .usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
                         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
-  m_depthImageView =
-      m_depthImage->getVkImageView({.format = m_context.getDevice().findDepthFormat().value(),
-                                    .aspectFlags = vk::ImageAspectFlagBits::eDepth});
+  m_depthImageView = m_depthImage->getVkImageView(
+      {.format = depthFormat.value(), .aspectFlags = vk::ImageAspectFlagBits::eDepth});
 }
 
 auto Renderer::createColorResources() -> void
@@ -474,7 +492,12 @@ auto Renderer::createDescriptorSets() -> void
     uint32_t textureIndex = 0;
     for (const auto &resourceId : m_uniqueTextures)
     {
-      auto texture = m_scene.getResourceManager().GetResource<vksim::Texture>(resourceId);
+      auto texture = m_scene.getResourceManager().getResource<vksim::Texture>(resourceId);
+      if (!texture)
+      {
+        spdlog::error("Failed to get texture resource with ID: {}", resourceId);
+        continue;
+      }
 
       vk::DescriptorImageInfo imageInfo{.sampler = texture.value()->getSampler(),
                                         .imageView = texture.value()->getImageView(),
@@ -493,7 +516,12 @@ auto Renderer::createDescriptorSets() -> void
     uint32_t materialIndex = 0;
     for (const auto &resourceId : m_uniqueMaterials)
     {
-      auto material = m_scene.getResourceManager().GetResource<vksim::Material>(resourceId);
+      auto material = m_scene.getResourceManager().getResource<vksim::Material>(resourceId);
+      if (!material)
+      {
+        spdlog::error("Failed to get material resource with ID: {}", resourceId);
+        continue;
+      }
 
       vk::DescriptorBufferInfo bufferInfo{.buffer = material.value()->getVkBuffer(),
                                           .offset = 0,
@@ -623,10 +651,17 @@ void Renderer::createGraphicsPipeline()
                                                     .layout = m_pipelineLayout,
                                                     .renderPass = nullptr};
 
-  vk::PipelineRenderingCreateInfo renderingCreateInfo{
-      .colorAttachmentCount = 1,
-      .pColorAttachmentFormats = &m_swapchain.getSurfaceFormat().format,
-      .depthAttachmentFormat = m_context.getDevice().findDepthFormat().value()};
+  auto depthFormat = m_context.getDevice().findDepthFormat();
+  if (!depthFormat.has_value())
+  {
+    spdlog::error("Failed to find a supported depth format");
+    std::abort();
+  }
+
+  vk::PipelineRenderingCreateInfo renderingCreateInfo{.colorAttachmentCount = 1,
+                                                      .pColorAttachmentFormats =
+                                                          &m_swapchain.getSurfaceFormat().format,
+                                                      .depthAttachmentFormat = depthFormat.value()};
 
   vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
       pipelineCreateInfoChain = {graphicsCreateInfo, renderingCreateInfo};
@@ -650,7 +685,8 @@ auto Renderer::createCommandBuffers() -> void
 {
   m_commandBuffers.clear();
 
-  const auto &commandPool = m_context.getCommandPool(m_queueHandle.familyIndex);
+  const auto &commandPool =
+      m_context.getCommandPool(m_context.getDefaultGraphicsQueue().familyIndex);
 
   m_commandBuffers = commandPool.allocateCommandBuffers(
       {.level = vk::CommandBufferLevel::ePrimary, .count = m_framesInFlight});
@@ -765,6 +801,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
     auto *mesh = object->getMesh().value();
     if (mesh == nullptr)
     {
+      spdlog::warn("SceneObject {} has no mesh assigned", object->getObjectId());
       continue;
     }
 
@@ -783,23 +820,30 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
     commandBuffer.bindVertexBuffers(0, *mesh->getVertexBuffer(), {0});
     commandBuffer.bindIndexBuffer(*mesh->getIndexBuffer(), 0, vk::IndexType::eUint32);
 
-    commandBuffer.drawIndexed(static_cast<uint32_t>(object->getMesh().value()->getIndexCount()), 1,
-                              0, 0, 0);
+    commandBuffer.drawIndexed(static_cast<uint32_t>(mesh->getIndexCount()), 1, 0, 0, 0);
   }
 
   commandBuffer.endRendering();
 
+  // Update and record the ImGui command buffer for the current frame
+  if (m_imguiRenderer)
+  {
+    m_imguiRenderer->update();
+    m_imguiRenderer->recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
+  }
+
   // After rendering, transition the swapchain image to
   // vk::ImageLayout::ePresentSrcKHR
-  /*  m_swapchain.transitionLayout(imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
-                                 vk::ImageLayout::ePresentSrcKHR,
-                                 vk::AccessFlagBits2::eColorAttachmentWrite,         //
-     srcAccessMask
-                                 {},                                                 //
-     dstAccessMask vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                                 vk::PipelineStageFlagBits2::eBottomOfPipe,          // dstStage
-                                 vk::ImageAspectFlagBits::eColor, commandBuffer);
-  commandBuffer.end();*/
+  m_swapchain.transitionLayout(imageIndex, vk::ImageLayout::eColorAttachmentOptimal,
+                               vk::ImageLayout::ePresentSrcKHR,
+                               vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
+                               {},                                                 // dstAccessMask
+                               vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
+                               vk::PipelineStageFlagBits2::eBottomOfPipe,          // dstStage
+                               vk::ImageAspectFlagBits::eColor, commandBuffer);
+
+  // End command buffer recording
+  commandBuffer.end();
 }
 
 void Renderer::recreateSwapchain()
@@ -818,28 +862,31 @@ void Renderer::recreateSwapchain()
 
   m_swapchain.recreate();
 
+  auto depthFormat = m_context.getDevice().findDepthFormat();
+  auto colorFormat = m_swapchain.getSurfaceFormat().format;
+  auto sampleCount = m_context.getMaxUsableSampleCount();
+
   m_depthImage->create(
       vksim::ImageCreateInfo{.width = m_swapchain.getExtent().width,
                              .height = m_swapchain.getExtent().height,
-                             .numSamples = m_context.getMaxUsableSampleCount(),
-                             .format = m_context.getDevice().findDepthFormat().value(),
+                             .numSamples = sampleCount,
+                             .format = depthFormat.value(),
                              .tiling = vk::ImageTiling::eOptimal,
                              .usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
-  m_depthImageView =
-      m_depthImage->getVkImageView({.format = m_context.getDevice().findDepthFormat().value(),
-                                    .aspectFlags = vk::ImageAspectFlagBits::eDepth});
+  m_depthImageView = m_depthImage->getVkImageView(
+      {.format = depthFormat.value(), .aspectFlags = vk::ImageAspectFlagBits::eDepth});
 
   m_colorImage->create(
       vksim::ImageCreateInfo{.width = m_swapchain.getExtent().width,
                              .height = m_swapchain.getExtent().height,
-                             .numSamples = m_context.getMaxUsableSampleCount(),
-                             .format = m_swapchain.getSurfaceFormat().format,
+                             .numSamples = sampleCount,
+                             .format = colorFormat,
                              .tiling = vk::ImageTiling::eOptimal,
                              .usage = vk::ImageUsageFlagBits::eColorAttachment,
                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
-  m_colorImageView = m_colorImage->getVkImageView({.format = m_swapchain.getSurfaceFormat().format,
-                                                   .aspectFlags = vk::ImageAspectFlagBits::eColor});
+  m_colorImageView = m_colorImage->getVkImageView(
+      {.format = colorFormat, .aspectFlags = vk::ImageAspectFlagBits::eColor});
 
   auto &camera = m_scene.getCamera();
   camera.transform({.width = m_swapchain.getExtent().width,
@@ -946,13 +993,10 @@ auto Renderer::drawFrame() -> void
   // image
   auto &renderFinishedSemaphore = m_renderFinishedSemaphores[imageIndex];
 
-  // Record the command buffer for the acquired image
+  // Record the command buffer for the acquired image (if defined including the ImGui command
+  // buffer)
   m_commandBuffers[m_currentFrame].reset();
   recordCommandBuffer(imageIndex, m_currentFrame, m_commandBuffers[m_currentFrame]);
-
-  // Update and record the ImGui command buffer for the current frame
-  m_imguiRenderer->update();
-  m_imguiRenderer->recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex);
 
   vk::PipelineStageFlags waitDestinationStageMask(
       vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -964,8 +1008,8 @@ auto Renderer::drawFrame() -> void
                                   .signalSemaphoreCount = 1,
                                   .pSignalSemaphores = &*renderFinishedSemaphore};
 
-  const auto &graphicsQueue = m_context.getDefaultQueue();
-  graphicsQueue.queue.submit(submitInfo, *inFlightFence);
+  const auto &graphicsQueue = m_context.getDefaultGraphicsQueue();
+  graphicsQueue.vkQueue.submit(submitInfo, *inFlightFence);
 
   const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
                                           .pWaitSemaphores = &*renderFinishedSemaphore,
@@ -973,7 +1017,7 @@ auto Renderer::drawFrame() -> void
                                           .pSwapchains = &*m_swapchain.get(),
                                           .pImageIndices = &imageIndex};
 
-  result = graphicsQueue.queue.presentKHR(presentInfoKHR);
+  result = graphicsQueue.vkQueue.presentKHR(presentInfoKHR);
   if ((result == vk::Result::eSuboptimalKHR) || (result == vk::Result::eErrorOutOfDateKHR))
   {
     recreateSwapchain();

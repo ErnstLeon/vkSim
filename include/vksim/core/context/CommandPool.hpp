@@ -21,36 +21,37 @@ struct CommandPoolCreateInfo
 /** @brief Structure to hold information for allocating command buffers
  *        from a command pool.
  */
-struct BufferAllocationInfo
+struct CommandBufferAllocationInfo
 {
   vk::CommandBufferLevel level;
   uint32_t count;
 };
 
 /** @brief CommandPool class encapsulates a Vulkan command pool and
- *        manages its associated resources.
+ * manages its associated resources. The command pool is created for a specific queue family
+ * and can be used to allocate command buffers for that queue family.
  */
 class CommandPool
 {
 public:
-  CommandPool(const CommandPool &) = delete;
-  CommandPool(CommandPool &&) noexcept = default;
-
-  auto operator=(const CommandPool &) -> CommandPool & = delete;
-  auto operator=(CommandPool &&) -> CommandPool & = delete;
-
   /** @brief Constructs a CommandPool with the specified create info.
    * @param createInfo Structure containing information for creating the
    * command pool.
    */
   CommandPool(VulkanContext &context, const CommandPoolCreateInfo &createInfo);
 
+  CommandPool(const CommandPool &) = delete;
+  CommandPool(CommandPool &&) noexcept = default;
+
+  auto operator=(const CommandPool &) -> CommandPool & = delete;
+  auto operator=(CommandPool &&) -> CommandPool & = delete;
+
   /** @brief Allocates command buffers from the command pool.
    * @param allocInfo Structure containing information for allocating
    * command buffers.
    * @return Vector of allocated command buffers.
    */
-  auto allocateCommandBuffers(const BufferAllocationInfo &allocInfo) const
+  [[nodiscard]] auto allocateCommandBuffers(const CommandBufferAllocationInfo &allocInfo) const
       -> std::vector<vk::raii::CommandBuffer>;
 
   /** @brief Returns the underlying Vulkan command pool.
