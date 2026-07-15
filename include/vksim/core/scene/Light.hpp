@@ -95,11 +95,12 @@ struct SpotLight
 {
   struct Params
   {
-    glm::vec4 position{0.0F, 0.0F, 1.0F,
-                       0.0F}; ///< Light position (xyz), inner cone angle (w) as cosine of the angle
+    glm::vec4 position{
+        0.0F, 0.0F, 1.0F,
+        0.75F}; ///< Light position (xyz), inner cone angle (w) as cosine of the angle
     glm::vec4 direction{
         0.0F, 0.0F, -1.0F,
-        0.0F}; ///< Light direction (xyz), outer cone angle (w) as cosine of the angle
+        0.5F}; ///< Light direction (xyz), outer cone angle (w) as cosine of the angle
     glm::vec4 color{1.0F, 1.0F, 1.0F, 1.0F}; ///< Light color (rgb), intensity (a)
   };
 
