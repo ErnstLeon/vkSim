@@ -114,6 +114,12 @@ public:
    */
   [[nodiscard]] auto getIndexCount() const -> size_t;
 
+  /** @brief Computes the axis-aligned bounding box (AABB) of the mesh based on its vertices.
+   * @return A pair of glm::vec3 representing the minimum and maximum corners of the AABB.
+   */
+  [[nodiscard]]
+  auto getAABB() const -> std::pair<glm::vec3, glm::vec3>;
+
 private:
   /** @brief Loads the mesh from a file and creates the necessary Vulkan resources.
    * @param uploadContext Upload command context that keeps staging buffers alive.

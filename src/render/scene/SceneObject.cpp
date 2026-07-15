@@ -1,5 +1,3 @@
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/matrix.hpp"
 #include <utility>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -7,7 +5,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/matrix.hpp"
 #include "vksim/render/scene/SceneObject.hpp"
+#include "vksim/utility/Logging.hpp"
 
 namespace vksim
 {
@@ -69,5 +70,33 @@ auto SceneObject::getModelMatrix() const -> const glm::mat4 & { return m_modelMa
 auto SceneObject::setVisible(bool visible) -> void { m_visible = visible; }
 
 auto SceneObject::isVisible() const -> bool { return m_visible; }
+
+auto SceneObject::getAABB() const -> std::pair<glm::vec3, glm::vec3>
+{
+  // If the mesh is not set, return a default AABB (zero size).
+  if (m_meshId.empty())
+  {
+    spdlog::warn("Mesh id is not set for scene object, returning default AABB");
+    return {glm::vec3(0.0F), glm::vec3(0.0F)};
+  }
+
+  auto meshResult = m_resourceManager.getResource<Mesh>(m_meshId);
+  if (!meshResult)
+  {
+    spdlog::error("Failed to get mesh for scene object: {}", meshResult.error());
+    return {glm::vec3(0.0F), glm::vec3(0.0F)};
+  }
+
+  Mesh *mesh = *meshResult;
+  auto [min, max] = mesh->getAABB();
+
+  auto modelMatrix = getModelMatrix();
+
+  // Transform the AABB corners using the model matrix.
+  glm::vec4 transformedMin = modelMatrix * glm::vec4(min, 1.0F);
+  glm::vec4 transformedMax = modelMatrix * glm::vec4(max, 1.0F);
+
+  return {glm::vec3(transformedMin), glm::vec3(transformedMax)};
+}
 
 } // namespace vksim

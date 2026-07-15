@@ -79,6 +79,13 @@ public:
    */
   [[nodiscard]] auto getObjectId() const -> uint32_t { return m_objectId; }
 
+  /** @brief Computes the axis-aligned bounding box (AABB) of the scene object based on its mesh and
+   * transform.
+   * @return A pair of glm::vec3 representing the minimum and maximum corners of the AABB.
+   */
+  [[nodiscard]]
+  auto getAABB() const -> std::pair<glm::vec3, glm::vec3>;
+
 private:
   glm::mat4 m_modelMatrix = glm::mat4(1.0F);
   bool m_visible = true;

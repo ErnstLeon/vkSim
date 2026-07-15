@@ -84,6 +84,26 @@ auto Mesh::getVertexCount() const -> size_t { return vertices.size(); }
 
 auto Mesh::getIndexCount() const -> size_t { return indices.size(); }
 
+auto Mesh::getAABB() const -> std::pair<glm::vec3, glm::vec3>
+{
+  if (vertices.empty())
+  {
+    spdlog::warn("Mesh {} has no vertices, returning default AABB", GetId());
+    return {glm::vec3(0.0F), glm::vec3(0.0F)};
+  }
+
+  glm::vec3 min = vertices[0].pos;
+  glm::vec3 max = vertices[0].pos;
+
+  for (const auto &vertex : vertices)
+  {
+    min = glm::min(min, vertex.pos);
+    max = glm::max(max, vertex.pos);
+  }
+
+  return {min, max};
+}
+
 auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
 {
   // Load the mesh using tinyobjloader

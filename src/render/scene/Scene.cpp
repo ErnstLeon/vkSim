@@ -114,4 +114,18 @@ auto Scene::getResourceManager() const -> ResourceManager & { return m_resourceM
 
 auto Scene::getSceneInfo() const -> const SceneInfo & { return m_sceneInfo; }
 
+auto Scene::getAABB() const -> std::pair<glm::vec3, glm::vec3>
+{
+  glm::vec3 minCorner(std::numeric_limits<float>::max());
+  glm::vec3 maxCorner(std::numeric_limits<float>::lowest());
+
+  for (const auto &object : m_objects)
+  {
+    const auto &[objectMin, objectMax] = object->getAABB();
+    minCorner = glm::min(minCorner, objectMin);
+    maxCorner = glm::max(maxCorner, objectMax);
+  }
+
+  return {minCorner, maxCorner};
+}
 } // namespace vksim

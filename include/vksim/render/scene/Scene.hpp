@@ -118,6 +118,12 @@ public:
    */
   [[nodiscard]] auto getContext() const -> VulkanContext &;
 
+  /** @brief Computes the axis-aligned bounding box (AABB) of the scene based on its objects.
+   * @return A pair of glm::vec3 representing the minimum and maximum corners of the AABB.
+   */
+  [[nodiscard]]
+  auto getAABB() const -> std::pair<glm::vec3, glm::vec3>;
+
 private:
   // The scene owns the scene objects and camera, ensuring proper memory management.
   // Use std::unique_ptr for scene objects to be able to return stable references when adding new
