@@ -17,12 +17,12 @@
 #include <imgui_impl_vulkan.h>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "vksim/core/buffers/Buffer.hpp"
-#include "vksim/core/buffers/Image.hpp"
-#include "vksim/core/context/VulkanContext.hpp"
-#include "vksim/core/device/Device.hpp"
-#include "vksim/core/render/Swapchain.hpp"
-#include "vksim/core/scene/Scene.hpp"
+#include "vksim/render/buffers/Buffer.hpp"
+#include "vksim/render/buffers/Image.hpp"
+#include "vksim/render/context/VulkanContext.hpp"
+#include "vksim/render/device/Device.hpp"
+#include "vksim/render/render/Swapchain.hpp"
+#include "vksim/render/scene/Scene.hpp"
 
 namespace vksim::ImGui
 {

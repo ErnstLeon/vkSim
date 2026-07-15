@@ -26,12 +26,12 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include "vksim/core/context/VulkanContext.hpp"
-#include "vksim/core/render/Renderer.hpp"
-#include "vksim/core/resources/ResourceManager.hpp"
-#include "vksim/core/scene/Camera.hpp"
-#include "vksim/core/scene/Scene.hpp"
-#include "vksim/core/window/Window.hpp"
+#include "vksim/render/context/VulkanContext.hpp"
+#include "vksim/render/render/Renderer.hpp"
+#include "vksim/render/resources/ResourceManager.hpp"
+#include "vksim/render/scene/Camera.hpp"
+#include "vksim/render/scene/Scene.hpp"
+#include "vksim/render/window/Window.hpp"
 #include "vksim/utility/Logging.hpp"
 
 constexpr uint32_t WIDTH = 800;
