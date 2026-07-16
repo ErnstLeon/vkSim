@@ -38,22 +38,13 @@ auto Mesh::doLoad(UploadContext &uploadContext) -> bool
   return true;
 }
 
-auto Mesh::getPositionsBuffer() const -> const vk::raii::Buffer &
-{
-  return m_positionsBuffer.getVkBuffer();
-}
+auto Mesh::getPositionsBuffer() const -> const Buffer & { return m_positionsBuffer; }
 
-auto Mesh::getNormalsBuffer() const -> const vk::raii::Buffer &
-{
-  return m_normalsBuffer.getVkBuffer();
-}
+auto Mesh::getNormalsBuffer() const -> const Buffer & { return m_normalsBuffer; }
 
-auto Mesh::getUVsBuffer() const -> const vk::raii::Buffer & { return m_uvsBuffer.getVkBuffer(); }
+auto Mesh::getUVsBuffer() const -> const Buffer & { return m_uvsBuffer; }
 
-auto Mesh::getIndexBuffer() const -> const vk::raii::Buffer &
-{
-  return m_indexBuffer.getVkBuffer();
-}
+auto Mesh::getIndexBuffer() const -> const Buffer & { return m_indexBuffer; }
 
 auto Mesh::getVertexBindingDescription() -> std::array<vk::VertexInputBindingDescription, 3>
 {

@@ -84,14 +84,14 @@ public:
   /** @brief Returns the vertex buffers for the mesh.
    * @return References to the vertex buffers.
    */
-  [[nodiscard]] auto getPositionsBuffer() const -> const vk::raii::Buffer &;
-  [[nodiscard]] auto getNormalsBuffer() const -> const vk::raii::Buffer &;
-  [[nodiscard]] auto getUVsBuffer() const -> const vk::raii::Buffer &;
+  [[nodiscard]] auto getPositionsBuffer() const -> const Buffer &;
+  [[nodiscard]] auto getNormalsBuffer() const -> const Buffer &;
+  [[nodiscard]] auto getUVsBuffer() const -> const Buffer &;
 
   /** @brief Returns the index buffer for the mesh.
    * @return Reference to the index buffer.
    */
-  [[nodiscard]] auto getIndexBuffer() const -> const vk::raii::Buffer &;
+  [[nodiscard]] auto getIndexBuffer() const -> const Buffer &;
 
   /** @brief Gets the binding description for the vertex input.
    * @return The vertex input binding description.

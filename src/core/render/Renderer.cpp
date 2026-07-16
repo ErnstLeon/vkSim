@@ -819,11 +819,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex, uint32_t frameIndex,
         m_pipelineLayout, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0,
         sizeof(ObjectDescriptor), &m_objectDescriptors[objectId]);
 
-    commandBuffer.bindVertexBuffers(0, *mesh->getPositionsBuffer(), {0});
-    commandBuffer.bindVertexBuffers(1, *mesh->getNormalsBuffer(), {0});
-    commandBuffer.bindVertexBuffers(2, *mesh->getUVsBuffer(), {0});
+    commandBuffer.bindVertexBuffers(0, *mesh->getPositionsBuffer().getVkBuffer(), {0});
+    commandBuffer.bindVertexBuffers(1, *mesh->getNormalsBuffer().getVkBuffer(), {0});
+    commandBuffer.bindVertexBuffers(2, *mesh->getUVsBuffer().getVkBuffer(), {0});
 
-    commandBuffer.bindIndexBuffer(*mesh->getIndexBuffer(), 0, vk::IndexType::eUint32);
+    commandBuffer.bindIndexBuffer(*mesh->getIndexBuffer().getVkBuffer(), 0, vk::IndexType::eUint32);
 
     commandBuffer.drawIndexed(static_cast<uint32_t>(mesh->getIndexCount()), 1, 0, 0, 0);
   }
