@@ -1,6 +1,4 @@
 
-#include "glm/trigonometric.hpp"
-#include "vksim/render/scene/SceneObject.hpp"
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -21,11 +19,13 @@
 
 #include <ImGuizmo.h>
 
+#include "glm/trigonometric.hpp"
+#include "vksim/core/buffers/Buffer.hpp"
+#include "vksim/core/buffers/Image.hpp"
+#include "vksim/core/device/Device.hpp"
+#include "vksim/core/scene/SceneObject.hpp"
 #include "vksim/imgui/ImGuiUtil.hpp"
 #include "vksim/imgui/fonts/IconsFontAwesome7.h"
-#include "vksim/render/buffers/Buffer.hpp"
-#include "vksim/render/buffers/Image.hpp"
-#include "vksim/render/device/Device.hpp"
 #include "vksim/utility/Logging.hpp"
 
 namespace vksim::ImGui
