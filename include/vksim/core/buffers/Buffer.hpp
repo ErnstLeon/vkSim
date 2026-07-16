@@ -47,6 +47,12 @@ public:
    */
   auto create(const BufferCreateInfo &createInfo) -> void;
 
+  /** @brief Returns the size of the buffer in bytes.
+   * @return The size of the buffer as a vk::DeviceSize.
+   */
+  [[nodiscard]]
+  auto getSize() const -> vk::DeviceSize;
+
   /** @brief Returns the underlying Vulkan buffer.
    * @return Reference to the Vulkan buffer.
    */

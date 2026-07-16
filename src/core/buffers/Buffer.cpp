@@ -27,6 +27,8 @@ void Buffer::create(const BufferCreateInfo &createInfo)
   m_buffer.bindMemory(*m_bufferMemory, 0);
 }
 
+auto Buffer::getSize() const -> vk::DeviceSize { return m_buffer.getMemoryRequirements().size; }
+
 auto Buffer::copyFromBuffer(Buffer &buffer, uint32_t size,
                             vk::raii::CommandBuffer &commandBuffer) const -> void
 {
