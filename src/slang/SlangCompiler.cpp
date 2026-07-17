@@ -59,9 +59,14 @@ auto SlangCompiler::compileToSpirv(std::string_view filename, std::string_view m
         error::Error(error::ErrorCode::SlangCompilationFailed, "Failed to open shader file"));
   }
 
-  std::vector<char> source(file.tellg());
+  std::streamsize size = file.tellg();
   file.seekg(0, std::ios::beg);
-  file.read(source.data(), static_cast<std::streamsize>(source.size()));
+
+  std::vector<char> source(static_cast<size_t>(size) + 1);
+
+  file.read(source.data(), size);
+  source[size] = '\0';
+
   file.close();
 
   // Compile the shader source code to SPIR-V using the Slang session
@@ -73,8 +78,16 @@ auto SlangCompiler::compileToSpirv(std::string_view filename, std::string_view m
 
     if (slangModule == nullptr)
     {
-      return std::unexpected(
-          error::Error(error::ErrorCode::SlangCompilationFailed, "Failed to load shader module"));
+      std::string diagnostics;
+
+      if (diagnosticsBlob != nullptr)
+      {
+        diagnostics.assign(static_cast<const char *>(diagnosticsBlob->getBufferPointer()),
+                           diagnosticsBlob->getBufferSize());
+      }
+
+      return std::unexpected(error::Error(error::ErrorCode::SlangCompilationFailed,
+                                          "Failed to load shader module: " + diagnostics));
     }
   }
 
