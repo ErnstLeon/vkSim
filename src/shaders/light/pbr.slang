@@ -66,6 +66,6 @@ float3 simplePBR(float3 normal, float3 viewDir, float3 lightDir, float3 albedo, 
   float3 kD = (1.0 - F) * (1.0 - metallic);
   float3 diffuse = kD * albedo / PI;
 
-  float3 finalColor = (diffuse + specular) * NdotL * 10.0; // Multiply by light intensity
+  float3 finalColor = (diffuse + specular) * NdotL; // Multiply by light intensity
   return finalColor;
 }
