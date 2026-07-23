@@ -90,13 +90,35 @@ auto SceneObject::getAABB() const -> std::pair<glm::vec3, glm::vec3>
   Mesh *mesh = *meshResult;
   auto [min, max] = mesh->getAABB();
 
-  auto modelMatrix = getModelMatrix();
+  // Generate Corners of the AABB in local space
+  std::array<glm::vec3, 8> corners = {{
+      {min.x, min.y, min.z},
+      {max.x, min.y, min.z},
+      {min.x, max.y, min.z},
+      {max.x, max.y, min.z},
+      {min.x, min.y, max.z},
+      {max.x, min.y, max.z},
+      {min.x, max.y, max.z},
+      {max.x, max.y, max.z},
+  }};
 
-  // Transform the AABB corners using the model matrix.
-  glm::vec4 transformedMin = modelMatrix * glm::vec4(min, 1.0F);
-  glm::vec4 transformedMax = modelMatrix * glm::vec4(max, 1.0F);
+  // The model matrix is stored in a transposed form to match Vulkan's column-major, transpose
+  // before transforming the AABB corners.
+  auto modelMatrix = glm::transpose(getModelMatrix());
 
-  return {glm::vec3(transformedMin), glm::vec3(transformedMax)};
+  glm::vec3 worldMin(FLT_MAX);
+  glm::vec3 worldMax(-FLT_MAX);
+
+  // Transform the corners to world space and compute the new AABB
+  for (auto &corner : corners)
+  {
+    glm::vec3 world = glm::vec3(modelMatrix * glm::vec4(corner, 1.0f));
+
+    worldMin = glm::min(worldMin, world);
+    worldMax = glm::max(worldMax, world);
+  }
+
+  return {worldMin, worldMax};
 }
 
 } // namespace vksim
