@@ -31,6 +31,7 @@ public:
    * @return Pointer to the loaded resource instance.
    */
   template <typename T, typename... Args>
+    requires std::is_base_of_v<Resource, T>
   auto load(const std::string &resourceId, VulkanContext &context, UploadContext &uploadContext,
             Args &&...args) -> std::expected<T *, std::string>
   {
@@ -59,6 +60,7 @@ public:
    * @param resourceId Unique identifier for the resource.
    */
   template <typename T>
+    requires std::is_base_of_v<Resource, T>
   auto getResource(const std::string &resourceId) -> std::expected<T *, std::string>
   {
     auto &typeResources = resources[typeid(T)];
@@ -78,7 +80,9 @@ public:
    * @param resourceId Unique identifier for the resource.
    * @return True if the resource is loaded, false otherwise.
    */
-  template <typename T> auto hasResource(const std::string &resourceId) -> bool
+  template <typename T>
+    requires std::is_base_of_v<Resource, T>
+  auto hasResource(const std::string &resourceId) -> bool
   {
     // Efficient existence check without resource access overhead
     auto resourceIt = resources.find(std::type_index(typeid(T)));
@@ -95,7 +99,9 @@ public:
    * @tparam T Type of the resource to release.
    * @param resourceId Unique identifier for the resource.
    */
-  template <typename T> void release(const std::string &resourceId)
+  template <typename T>
+    requires std::is_base_of_v<Resource, T>
+  void release(const std::string &resourceId)
   {
     auto resourceIt = resources.find(std::type_index(typeid(T)));
     if (resourceIt == resources.end())
