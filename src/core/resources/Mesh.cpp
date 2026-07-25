@@ -189,7 +189,8 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
     stagingBuffer.create(BufferCreateInfo{.size = positionsBufferSize,
                                           .usage = vk::BufferUsageFlagBits::eTransferSrc,
                                           .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
+                                                        vk::MemoryPropertyFlagBits::eHostCoherent,
+                                          .debugName = "PositionsStagingBuffer"});
 
     // Map the staging buffers and copy the vertex and index data into them
     auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, positionsBufferSize);
@@ -208,10 +209,11 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
   // the UploadContext
   {
     // Create the vertex buffer for normals
-    m_normalsBuffer.create(BufferCreateInfo{
-        .size = normalsBufferSize,
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
+    m_normalsBuffer.create(BufferCreateInfo{.size = normalsBufferSize,
+                                            .usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                                                     vk::BufferUsageFlagBits::eTransferDst,
+                                            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                            .debugName = "NormalsBuffer"});
 
     // Create a staging buffer for normals
     auto stagingBuffer = Buffer(m_device);
@@ -239,7 +241,8 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
     m_uvsBuffer.create(BufferCreateInfo{.size = uvsBufferSize,
                                         .usage = vk::BufferUsageFlagBits::eVertexBuffer |
                                                  vk::BufferUsageFlagBits::eTransferDst,
-                                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
+                                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                        .debugName = "UVsBuffer"});
 
     // Create a staging buffer for uvs
     auto stagingBuffer = Buffer(m_device);
@@ -266,8 +269,10 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
     // Create the index buffer
     m_indexBuffer.create(BufferCreateInfo{.size = indexBufferSize,
                                           .usage = vk::BufferUsageFlagBits::eIndexBuffer |
+                                                   vk::BufferUsageFlagBits::eStorageBuffer |
                                                    vk::BufferUsageFlagBits::eTransferDst,
-                                          .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
+                                          .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                          .debugName = "IndexBuffer"});
 
     // Create a staging buffer for indices
     auto stagingBuffer = Buffer(m_device);
