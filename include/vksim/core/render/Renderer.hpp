@@ -46,6 +46,8 @@ public:
 
   /** @brief Renders a frame. */
   auto drawFrame() -> void;
+
+  /** @brief Returns the extent of the swapchain images. */
   [[nodiscard]] auto getExtent() const -> vk::Extent2D { return m_swapchain.getExtent(); }
 
   /** @brief Returns the number of frames that can be processed concurrently. */
