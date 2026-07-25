@@ -32,6 +32,12 @@ public:
    */
   [[nodiscard]] auto logical() const -> const vk::raii::Device &;
 
+  /** @brief Returns the subgroup size of the physical device.
+   * @return The subgroup size, or an error message if the query fails.
+   */
+  [[nodiscard]]
+  auto getSubgroupSize() const -> std::expected<uint32_t, std::string>;
+
   /** @brief Sets the physical device handle by taking ownership of the RAII object.
    */
   auto setPhysicalDevice(vk::raii::PhysicalDevice &&physicalDevice) -> void;

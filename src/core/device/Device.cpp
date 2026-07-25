@@ -1,4 +1,5 @@
 #include "vksim/core/device/Device.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <cstdlib>
 
@@ -19,6 +20,22 @@ auto Device::logical() const -> const vk::raii::Device & { return m_logicalDevic
 auto Device::setPhysicalDevice(vk::raii::PhysicalDevice &&physicalDevice) -> void
 {
   m_physicalDevice = std::move(physicalDevice);
+}
+
+auto Device::getSubgroupSize() const -> std::expected<uint32_t, std::string>
+{
+  vk::PhysicalDeviceSubgroupProperties deviceSubgroupProperties;
+  vk::PhysicalDeviceProperties2 deviceProperties;
+  deviceProperties.pNext = &deviceSubgroupProperties;
+  m_physicalDevice.getProperties2(&deviceProperties);
+
+  uint32_t subgroupSize = deviceSubgroupProperties.subgroupSize;
+  if (subgroupSize == 0)
+  {
+    return std::unexpected("Failed to retrieve subgroup size from physical device properties.");
+  }
+
+  return subgroupSize;
 }
 
 auto Device::setLogicalDevice(vk::raii::Device &&logicalDevice) -> void
