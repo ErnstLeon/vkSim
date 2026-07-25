@@ -13,39 +13,9 @@
 namespace vksim
 {
 
-SceneObject::SceneObject(ResourceManager &resourceManager) : m_resourceManager(resourceManager) {}
-
-auto SceneObject::setMesh(const std::string &meshId) -> void { m_meshId = meshId; }
-
-auto SceneObject::getMeshId() const -> const std::string & { return m_meshId; }
-
-auto SceneObject::getMesh() const -> std::expected<Mesh *, std::string>
+SceneObject::SceneObject(ResourceManager &resourceManager, VulkanContext &context)
+    : m_resourceManager(resourceManager), m_context(context)
 {
-
-  if (m_meshId.empty())
-  {
-    return std::unexpected("Mesh id is not set for scene object");
-  }
-
-  return m_resourceManager.getResource<Mesh>(m_meshId);
-}
-
-auto SceneObject::setTexture(const std::string &textureId) -> void { m_textureId = textureId; }
-
-auto SceneObject::getTextureId() const -> const std::string & { return m_textureId; }
-
-auto SceneObject::getTexture() const -> std::expected<Texture *, std::string>
-{
-  return m_resourceManager.getResource<Texture>(m_textureId);
-}
-
-auto SceneObject::setMaterial(const std::string &materialId) -> void { m_materialId = materialId; }
-
-auto SceneObject::getMaterialId() const -> const std::string & { return m_materialId; }
-
-auto SceneObject::getMaterial() const -> std::expected<Material *, std::string>
-{
-  return m_resourceManager.getResource<Material>(m_materialId);
 }
 
 auto SceneObject::transform(const Transform &transform) -> void
@@ -74,20 +44,13 @@ auto SceneObject::isVisible() const -> bool { return m_visible; }
 auto SceneObject::getAABB() const -> std::pair<glm::vec3, glm::vec3>
 {
   // If the mesh is not set, return a default AABB (zero size).
-  if (m_meshId.empty())
+  if (!hasResource<Mesh>())
   {
-    spdlog::warn("Mesh id is not set for scene object, returning default AABB");
+    spdlog::warn("Mesh is not set for scene object, returning default AABB");
     return {glm::vec3(0.0F), glm::vec3(0.0F)};
   }
 
-  auto meshResult = m_resourceManager.getResource<Mesh>(m_meshId);
-  if (!meshResult)
-  {
-    spdlog::error("Failed to get mesh for scene object: {}", meshResult.error());
-    return {glm::vec3(0.0F), glm::vec3(0.0F)};
-  }
-
-  Mesh *mesh = *meshResult;
+  Mesh *mesh = *getResource<Mesh>();
   auto [min, max] = mesh->getAABB();
 
   // Generate Corners of the AABB in local space

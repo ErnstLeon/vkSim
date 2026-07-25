@@ -1179,10 +1179,10 @@ auto renderObjectList(Scene &scene, std::optional<uint32_t> &selectedObjectId) -
     // Create a label for the object, including its mesh ID if available, or a default label with
     // the object ID.
     std::string label;
-    const auto &meshId = sceneObject.getMeshId();
-    if (!meshId.empty())
+    const auto &meshId = sceneObject.getResourceId<vksim::Mesh>();
+    if (meshId)
     {
-      label = std::string(ICON_FA_CUBE) + " " + meshId;
+      label = std::string(ICON_FA_CUBE) + " " + *meshId;
     }
     else
     {
@@ -1230,7 +1230,7 @@ auto renderObjectList(Scene &scene, std::optional<uint32_t> &selectedObjectId) -
       ::ImGui::BeginTooltip();
 
       ::ImGui::Text(ICON_FA_TAG " ID: %u", objectId);
-      ::ImGui::Text(ICON_FA_CUBE " Mesh: %s", meshId.empty() ? "None" : meshId.c_str());
+      ::ImGui::Text(ICON_FA_CUBE " Mesh: %s", meshId ? meshId->c_str() : "None");
       ::ImGui::Text(ICON_FA_EYE " Visible: %s", sceneObject.isVisible() ? "Yes" : "No");
 
       ::ImGui::EndTooltip();
