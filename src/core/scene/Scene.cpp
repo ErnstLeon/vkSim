@@ -1,6 +1,7 @@
 #include <vector>
 
 #include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/physics/fluid/LBMFluid.hpp"
 #include "vksim/core/scene/Camera.hpp"
 #include "vksim/core/scene/Scene.hpp"
 #include "vksim/core/scene/SceneObject.hpp"
@@ -35,11 +36,13 @@ auto Scene::addObject() -> SceneObject &
 {
   spdlog::info("Adding new scene object with id {}", m_objects.size());
 
-  m_objects.emplace_back(std::make_unique<SceneObject>(m_resourceManager));
+  m_objects.emplace_back(std::make_unique<SceneObject>(m_resourceManager, m_context));
   m_objects.back()->setObjectId(static_cast<uint32_t>(m_objects.size() - 1));
 
   return *m_objects.back();
 }
+
+auto Scene::getFluid() -> physics::LBMFluidBase * { return m_fluid.get(); }
 
 auto Scene::addDirectionalLight() -> DirectionalLight &
 {

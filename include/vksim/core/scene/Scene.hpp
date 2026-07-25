@@ -1,9 +1,10 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "vksim/core/context/VulkanContext.hpp"
-#include "vksim/core/physics/LBMFluid.hpp"
+#include "vksim/core/physics/fluid/LBMFluid.hpp"
 #include "vksim/core/resources/ResourceManager.hpp"
 #include "vksim/core/scene/Camera.hpp"
 #include "vksim/core/scene/Light.hpp"
@@ -11,6 +12,12 @@
 
 namespace vksim
 {
+
+namespace physics
+{
+class LBMFluidBase;
+struct FluidSimulationInfo;
+} // namespace physics
 
 /**
  * @brief Scene class encapsulates the camera and scene objects, providing
@@ -43,6 +50,28 @@ public:
    * @return Reference to the newly added scene object.
    */
   auto addObject() -> SceneObject &;
+
+  /** @brief Adds a new fluid object to the scene. Only one fluid object is allowed per scene.
+   * @tparam T Type of the fluid object (must be derived from LBMFluidBase).
+   * @return Reference to the newly added fluid object.
+   */
+  template <typename T>
+    requires std::is_base_of_v<physics::LBMFluidBase, T>
+  auto addFluid(physics::FluidSimulationInfo fluidSimulationInfo) -> T &
+  {
+    if (m_fluid)
+    {
+      spdlog::warn("Scene already has a fluid object. Replacing the existing fluid object.");
+    }
+    m_fluid = std::make_unique<T>(m_context, std::move(fluidSimulationInfo));
+    return *static_cast<T *>(m_fluid.get());
+  }
+
+  /** @brief Gets the fluid object associated with the scene.
+   * @return Pointer to the fluid object if it exists, nullptr otherwise.
+   */
+  [[nodiscard]]
+  auto getFluid() -> physics::LBMFluidBase *;
 
   /** @brief Adds a new directional light to the scene.
    * @return Reference to the newly added directional light.
@@ -130,9 +159,8 @@ private:
   std::vector<std::unique_ptr<SpotLight>> m_spotLights;
   std::optional<Camera> m_camera;
 
-  // The scene own resources for physical simulation, such as LBM fluid simulation, and manages
-  // their lifetimes.
-  std::vector<std::unique_ptr<physics::LBMFluidBase>> m_lbmFluids;
+  // Pointer to the fluid object in the scene. Only one fluid object is allowed per scene (for now).
+  std::unique_ptr<physics::LBMFluidBase> m_fluid;
 
   VulkanContext &m_context;
   ResourceManager &m_resourceManager;
