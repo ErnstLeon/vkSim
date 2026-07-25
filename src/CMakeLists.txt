@@ -3,24 +3,27 @@ add_library(vksim SHARED)
 target_sources(vksim
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src/slang/SlangCompiler.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/buffers/Buffer.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/buffers/Image.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/device/Device.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/context/VulkanContext.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/context/DeviceSelector.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/context/CommandPool.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/scene/Camera.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/scene/Light.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/scene/Scene.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/scene/SceneObject.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/resources/UploadContext.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/resources/Texture.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/resources/Mesh.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/resources/Material.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/render/Swapchain.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/render/Renderer.cpp
-    ${CMAKE_SOURCE_DIR}/src/render/window/Window.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/buffers/Buffer.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/buffers/Image.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/device/Device.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/context/VulkanContext.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/context/DeviceSelector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/context/CommandPool.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/scene/Camera.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/scene/Light.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/scene/Scene.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/scene/SceneObject.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/resources/UploadContext.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/resources/Texture.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/resources/Mesh.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/resources/Material.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/render/Swapchain.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/render/Renderer.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/window/Window.cpp
     ${CMAKE_SOURCE_DIR}/src/imgui/ImGuiUtil.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/physics/voxelizer/VoxelGrid.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/physics/voxelizer/Voxelizer.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/physics/Engine.cpp
 
   PUBLIC
     FILE_SET HEADERS
@@ -30,25 +33,31 @@ target_sources(vksim
       ${CMAKE_SOURCE_DIR}/include/vksim/utility/Logging.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/imgui/ImGuiUtil.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/slang/SlangCompiler.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/buffers/Buffer.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/buffers/Image.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/device/Device.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/context/VulkanContext.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/context/DeviceSelector.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/context/CommandPool.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/scene/Camera.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/scene/Light.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/scene/Scene.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/scene/SceneObject.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/resources/UploadContext.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/resources/ResourceManager.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/resources/Texture.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/resources/Mesh.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/resources/Material.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/render/Swapchain.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/render/Renderer.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/queue/Queue.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/render/window/Window.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/buffers/Buffer.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/buffers/Image.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/device/Device.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/context/VulkanContext.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/context/DeviceSelector.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/context/CommandPool.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/Camera.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/Light.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/Scene.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/SceneObject.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/UploadContext.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/ResourceManager.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Texture.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Mesh.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Material.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/render/Swapchain.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/render/Renderer.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/queue/Queue.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/window/Window.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/fluid/LBMFluid.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/fluid/LBMFluid.tpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/fluid/LBMConfigs.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/voxelizer/VoxelGrid.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/voxelizer/Voxelizer.hpp
+      ${CMAKE_SOURCE_DIR}/include/vksim/core/physics/Engine.hpp
 )
 
 target_sources(vksim PRIVATE
