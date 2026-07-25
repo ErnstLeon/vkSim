@@ -26,12 +26,17 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include "vksim/render/context/VulkanContext.hpp"
-#include "vksim/render/render/Renderer.hpp"
-#include "vksim/render/resources/ResourceManager.hpp"
-#include "vksim/render/scene/Camera.hpp"
-#include "vksim/render/scene/Scene.hpp"
-#include "vksim/render/window/Window.hpp"
+#include "vksim/core/context/VulkanContext.hpp"
+#include "vksim/core/physics/Engine.hpp"
+#include "vksim/core/physics/fluid/LBMFluid.hpp"
+#include "vksim/core/render/Renderer.hpp"
+#include "vksim/core/resources/Material.hpp"
+#include "vksim/core/resources/Mesh.hpp"
+#include "vksim/core/resources/ResourceManager.hpp"
+#include "vksim/core/resources/Texture.hpp"
+#include "vksim/core/scene/Camera.hpp"
+#include "vksim/core/scene/Scene.hpp"
+#include "vksim/core/window/Window.hpp"
 #include "vksim/utility/Logging.hpp"
 
 constexpr uint32_t WIDTH = 800;
@@ -65,7 +70,8 @@ auto main() -> int
                             .extensions = {vk::KHRPortabilityEnumerationExtensionName}},
 
                .device = {
-                   .extensions = {vk::KHRSwapchainExtensionName, "VK_KHR_portability_subset"},
+                   .extensions = {vk::KHRSwapchainExtensionName, "VK_KHR_portability_subset",
+                                  "VK_EXT_shader_atomic_float"},
                    .features =
                        {
                            .anisotropicFiltering = true,
@@ -138,29 +144,38 @@ auto main() -> int
   auto &pointLight = scene.addPointLight();
 
   auto &ball = scene.addObject();
-  ball.setMesh("ball_mesh");
-  ball.setMaterial("material_1");
+  ball.setResource<vksim::Mesh>("ball_mesh");
+  ball.setResource<vksim::Material>("material_1");
   ball.setVisible(true);
 
   auto &bunny = scene.addObject();
-  bunny.setMesh("bunny_mesh");
-  bunny.setMaterial("material_2");
+  bunny.setResource<vksim::Mesh>("bunny_mesh");
+  bunny.setResource<vksim::Material>("material_2");
+  bunny.setResource<vksim::Texture>("floor_texture");
   bunny.setVisible(true);
 
   auto &teapot = scene.addObject();
-  teapot.setMesh("teapot_mesh");
-  teapot.setMaterial("material_3");
+  teapot.setResource<vksim::Mesh>("teapot_mesh");
+  teapot.setResource<vksim::Material>("material_2");
+  teapot.setResource<vksim::Texture>("floor_texture");
   teapot.setVisible(true);
 
-  auto &floor = scene.addObject();
-  floor.setMesh("floor_mesh");
-  floor.setTexture("floor_texture");
-  floor.setVisible(true);
+  vksim::physics::FluidSimulationInfo fluidSimulationInfo{
+      .fluidInfo = {.tau = 0.6F, .rho = 1.0F},
+      .voxelizationInfo = {.aabb = {{-5.0F, -5.0F, -5.0F}, {5.0F, 5.0F, 5.0F}}, .cellSize = 0.1F}};
 
-  floor.transform({.position = glm::vec3(0.F, 0.F, 0.F),
-                   .rotation = glm::quat(glm::eulerAngleXYZ(0.0F, 0.0F, 0.0F)),
-                   .scale = glm::vec3(10.0F, 10.0F, 10.0F)});
+  auto &fluid =
+      scene.addFluid<vksim::physics::LBMFluid<vksim::physics::D3Q19, float>>(fluidSimulationInfo);
+  /*
+    auto &floor = scene.addObject();
+    floor.setResource<vksim::Mesh>("floor_mesh");
+    floor.setResource<vksim::Texture>("floor_texture");
+    floor.setVisible(true);
 
+      floor.transform({.position = glm::vec3(0.F, 0.F, 0.F),
+                       .rotation = glm::quat(glm::eulerAngleXYZ(0.0F, 0.0F, 0.0F)),
+                       .scale = glm::vec3(10.0F, 10.0F, 10.0F)});
+*/
   bunny.transform({.position = glm::vec3(0.F, -4.0F, 0.0F),
                    .rotation = glm::quat(glm::eulerAngleXYZ(glm::pi<float>() / 2.0F, 0.0F, 0.0F)),
                    .scale = glm::vec3(15.0F, 15.0F, 15.0F)});
@@ -190,11 +205,14 @@ auto main() -> int
                         .intensity = 0.0F});
 
   // Create a renderer with the Vulkan context and the scene
-  auto renderer = vksim::Renderer(context, scene, MAX_FRAMES_IN_FLIGHT);
+  auto renderer = vksim::Renderer(context, scene, MAX_FRAMES_IN_FLIGHT, true);
+  auto physicsEngine = vksim::physics::Engine(context, scene);
 
   while (!window.shouldClose())
   {
     vksim::Window::pollEvents();
+    physicsEngine.evolve(); // Evolve the physics simulation
+    context.getDevice().logical().waitIdle();
     renderer.drawFrame();
   }
   context.getDevice().logical().waitIdle();
