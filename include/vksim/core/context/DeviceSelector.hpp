@@ -23,6 +23,7 @@ struct DeviceFeatures
   bool synchronization2 = true;
   bool extendedDynamicState = true;
   bool runtimeDescriptorArray = true;
+  bool atomicAddFloat32 = true;
 };
 
 /**
@@ -50,7 +51,8 @@ struct DeviceSelection
    */
   vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
                      vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                     vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
+                     vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+                     vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT>
       featureChain;
 
   /** @brief The required device extensions for the selected physical
@@ -127,7 +129,8 @@ private:
       -> std::pair<bool, vk::StructureChain<
                              vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
                              vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                             vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>;
+                             vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+                             vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT>>;
 
   /**
    * @brief Checks if the requested queues can be satisfied by the

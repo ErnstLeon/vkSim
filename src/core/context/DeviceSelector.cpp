@@ -1,3 +1,4 @@
+#include "vulkan/vulkan.hpp"
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
@@ -158,14 +159,16 @@ auto DeviceSelector::checkFeatures(vk::raii::PhysicalDevice const &device,
     -> std::pair<bool, vk::StructureChain<
                            vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
                            vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                           vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>>
+                           vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+                           vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT>>
 {
   // Get the supported features of the physicalDevice, including render features and extended
   // features If new features are added to DeviceFeatures, their support should also be checked here
   auto features =
       device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
                           vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-                          vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+                          vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+                          vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT>();
 
   const auto &render = features.get<vk::PhysicalDeviceFeatures2>().features;
 
@@ -177,6 +180,8 @@ auto DeviceSelector::checkFeatures(vk::raii::PhysicalDevice const &device,
 
   const auto &extDyn = features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
 
+  const auto &atomicFloat = features.get<vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT>();
+
   // Check if all required features are supported by the physicalDevice
   // If new features are added to DeviceFeatures, they should also be checked here
   bool supportsRequiredFeatures =
@@ -185,7 +190,8 @@ auto DeviceSelector::checkFeatures(vk::raii::PhysicalDevice const &device,
       (!deviceFeatures.dynamicRendering || (vk13.dynamicRendering != 0U)) &&
       (!deviceFeatures.synchronization2 || (vk13.synchronization2 != 0U)) &&
       (!deviceFeatures.extendedDynamicState || (extDyn.extendedDynamicState != 0U)) &&
-      (!deviceFeatures.runtimeDescriptorArray || (vk12.runtimeDescriptorArray != 0U));
+      (!deviceFeatures.runtimeDescriptorArray || (vk12.runtimeDescriptorArray != 0U)) &&
+      (!deviceFeatures.atomicAddFloat32 || (atomicFloat.shaderBufferFloat32AtomicAdd != 0U));
 
   return {supportsRequiredFeatures, std::move(features)};
 }
