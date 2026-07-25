@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
@@ -16,6 +17,7 @@ struct BufferCreateInfo
   vk::DeviceSize size{0};
   vk::BufferUsageFlags usage;
   vk::MemoryPropertyFlags properties;
+  std::optional<std::string> debugName; // Optional debug name for the buffer
 };
 
 /** @brief Buffer class encapsulates a Vulkan buffer and manages its

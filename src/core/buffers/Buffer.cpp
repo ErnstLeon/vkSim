@@ -25,6 +25,16 @@ void Buffer::create(const BufferCreateInfo &createInfo)
 
   m_bufferMemory = vk::raii::DeviceMemory(m_device.logical(), allocInfo);
   m_buffer.bindMemory(*m_bufferMemory, 0);
+
+  if (createInfo.debugName.has_value() && DEBUG)
+  {
+    vk::DebugUtilsObjectNameInfoEXT nameInfo{
+        .objectType = vk::ObjectType::eBuffer,
+        .objectHandle = reinterpret_cast<uint64_t>(static_cast<VkBuffer>(*m_buffer)),
+        .pObjectName = createInfo.debugName->c_str()};
+
+    m_device.logical().setDebugUtilsObjectNameEXT(nameInfo);
+  }
 }
 
 auto Buffer::getSize() const -> vk::DeviceSize { return m_buffer.getMemoryRequirements().size; }
