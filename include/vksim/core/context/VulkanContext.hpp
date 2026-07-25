@@ -151,6 +151,24 @@ public:
   [[nodiscard]] auto getCommandPool(uint32_t familyIndex) const -> const CommandPool &;
 
   /**
+   * @brief Returns the command pool associated with the default graphics queue.
+   * @return Reference to the Vulkan command pool associated with the default graphics queue.
+   */
+  [[nodiscard]] auto getDefaultGraphicsCommandPool() const -> const CommandPool &;
+
+  /**
+   * @brief Returns the command pool associated with the default compute queue.
+   * @return Reference to the Vulkan command pool associated with the default compute queue.
+   */
+  [[nodiscard]] auto getDefaultComputeCommandPool() const -> const CommandPool &;
+
+  /**
+   * @brief Returns the command pool associated with the default transfer queue.
+   * @return Reference to the Vulkan command pool associated with the default transfer queue.
+   */
+  [[nodiscard]] auto getDefaultTransferCommandPool() const -> const CommandPool &;
+
+  /**
    * @brief Return the queue of the default graphics queue (first requested graphics queue).
    * @return Reference to the default queue.
    */

@@ -304,6 +304,21 @@ auto VulkanContext::getCommandPool(uint32_t familyIndex) const -> const CommandP
   return poolIt->second;
 }
 
+auto VulkanContext::getDefaultGraphicsCommandPool() const -> const CommandPool &
+{
+  return getCommandPool(getDefaultGraphicsQueue().familyIndex);
+}
+
+auto VulkanContext::getDefaultComputeCommandPool() const -> const CommandPool &
+{
+  return getCommandPool(getDefaultComputeQueue().familyIndex);
+}
+
+auto VulkanContext::getDefaultTransferCommandPool() const -> const CommandPool &
+{
+  return getCommandPool(getDefaultTransferQueue().familyIndex);
+}
+
 auto VulkanContext::getDefaultGraphicsQueue() const -> const Queue &
 {
   // Return a reference to the first requested queue (added in build()) which is the default
