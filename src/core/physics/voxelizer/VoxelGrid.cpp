@@ -50,7 +50,7 @@ auto VoxelGrid::createBuffers() -> void
                     static_cast<glm::uint64_t>(m_gridSize.y) *
                     static_cast<glm::uint64_t>(m_gridSize.z);
 
-  m_voxelGridBuffer.emplace(m_context.getDevice());
+  m_voxelGridBuffer.emplace(m_context);
   m_voxelGridBuffer->create(BufferCreateInfo{
       .size = totalCells *
               sizeof(uint8_t), // Assuming each voxel is represented by a single byte (0 or 1),
@@ -64,55 +64,23 @@ auto VoxelGrid::createBuffers() -> void
   // Vec4 for gridMin (xyz: min, w: cell size), gridMax (xyz: max, w: unused), and gridSize
   // (xyz: size, w: unused)
   uint32_t voxelGridParamsSize = (sizeof(glm::vec4) * 2) + (sizeof(uint32_t) * 4);
-  m_voxelizationParamsBuffer.emplace(m_context.getDevice());
+  m_voxelizationParamsBuffer.emplace(m_context);
   m_voxelizationParamsBuffer->create(BufferCreateInfo{
       .size = voxelGridParamsSize,
       .usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst,
       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
       .debugName = "VoxelizationParamsBuffer"});
 
-  // Copy voxelization parameters to the uniform buffer via a staging buffer.
-  {
-    vk::CommandBufferAllocateInfo allocInfo{.commandPool =
-                                                m_context.getDefaultTransferCommandPool().get(),
-                                            .level = vk::CommandBufferLevel::ePrimary,
-                                            .commandBufferCount = 1};
-    auto commandBuffers = vk::raii::CommandBuffers(m_context.getDevice().logical(), allocInfo);
-
-    vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-    commandBuffers.front().begin(beginInfo);
-
-    auto stagingBuffer = Buffer(m_context.getDevice());
-    stagingBuffer.create(BufferCreateInfo{.size = voxelGridParamsSize,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-
-    auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, voxelGridParamsSize);
-
-    std::memcpy(static_cast<char *>(stagingBufferMemory), &m_voxelizationInfo.aabb.first,
-                sizeof(glm::vec3));
-    std::memcpy(static_cast<char *>(stagingBufferMemory) + sizeof(glm::vec3),
-                &m_voxelizationInfo.cellSize, sizeof(float));
-    std::memcpy(static_cast<char *>(stagingBufferMemory) + sizeof(glm::vec4),
-                &m_voxelizationInfo.aabb.second, sizeof(glm::vec3));
-    std::memcpy(static_cast<char *>(stagingBufferMemory) + (2 * sizeof(glm::vec4)), &m_gridSize,
-                3 * sizeof(uint32_t));
-    std::memcpy(static_cast<char *>(stagingBufferMemory) + (2 * sizeof(glm::vec4)) +
-                    (3 * sizeof(uint32_t)),
-                &m_totalCells, sizeof(uint32_t));
-
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_voxelizationParamsBuffer->copyFromBuffer(stagingBuffer, voxelGridParamsSize,
-                                               *commandBuffers.begin());
-
-    commandBuffers.front().end();
-
-    vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffers.front()};
-    m_context.getDefaultTransferQueue().vkQueue.submit(submitInfo, nullptr);
-    m_context.getDefaultTransferQueue().vkQueue.waitIdle();
-  }
+  // Copy voxelization parameters to the uniform buffer
+  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.aabb.first, sizeof(glm::vec3), 0, 0);
+  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.cellSize, sizeof(float), 0,
+                                           sizeof(glm::vec3));
+  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.aabb.second, sizeof(glm::vec3), 0,
+                                           sizeof(glm::vec4));
+  m_voxelizationParamsBuffer->copyFromHost(&m_gridSize, 3 * sizeof(uint32_t), 0,
+                                           (2 * sizeof(glm::vec4)));
+  m_voxelizationParamsBuffer->copyFromHost(&m_totalCells, sizeof(uint32_t), 0,
+                                           (2 * sizeof(glm::vec4)) + (3 * sizeof(uint32_t)));
 
   spdlog::info("Voxel grid buffer created with total cells: {}", m_totalCells);
 }

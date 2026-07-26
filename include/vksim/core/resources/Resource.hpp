@@ -5,7 +5,7 @@
 #include <utility>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "vksim/core/resources/UploadContext.hpp"
+#include "vksim/core/context/VulkanContext.hpp"
 
 namespace vksim
 {
@@ -34,15 +34,16 @@ public:
   [[nodiscard]] auto IsLoaded() const -> bool { return loaded; }
 
   /** @brief Loads the resource.
+   * @param context Reference to the Vulkan context for resource creation.
    * @return True if the resource was successfully loaded, false otherwise.
    */
-  [[nodiscard]] auto Load(UploadContext &uploadContext) -> bool
+  [[nodiscard]] auto Load() -> bool
   {
-    loaded = doLoad(uploadContext);
+    loaded = doLoad();
     return loaded;
   }
 
 protected:
-  virtual auto doLoad(UploadContext &uploadContext) -> bool = 0;
+  virtual auto doLoad() -> bool = 0;
 };
 } // namespace vksim

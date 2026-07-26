@@ -37,9 +37,9 @@ public:
   auto operator=(Buffer &&) -> Buffer & = delete;
 
   /** @brief Initializes a Buffer with the specified create info.
-   * @param device Reference to the Vulkan device for access to GPU resources.
+   * @param context Reference to the Vulkan context for access to GPU resources.
    */
-  Buffer(vksim::Device &device);
+  Buffer(VulkanContext &context);
 
   /** @brief Creates a Vulkan buffer with the specified create info. This method allocates the
    * buffer and its associated memory, and binds them together. It must be called after the Buffer
@@ -69,14 +69,34 @@ public:
    * @param buffer The source buffer to copy data from.
    * @param size The size of the data to copy.
    * @param commandBuffer The command buffer to record the copy commands.
+   * @param srcOffset The offset in the source buffer from which to start copying.
+   * @param dstOffset The offset in the destination buffer where the data will be copied.
    */
-  auto copyFromBuffer(Buffer &buffer, uint32_t size, vk::raii::CommandBuffer &commandBuffer) const
-      -> void;
+  auto copyFromBuffer(Buffer &buffer, uint32_t size, vk::raii::CommandBuffer &commandBuffer,
+                      uint32_t srcOffset = 0, uint32_t dstOffset = 0) const -> void;
+
+  /** @brief Copies data from host memory to this buffer.
+   * @param data Pointer to the host memory containing the data to copy.
+   * @param size The size of the data to copy.
+   * @param srcOffset The offset in the source host memory from which to start copying.
+   * @param dstOffset The offset in the destination buffer where the data will be copied.
+   */
+  auto copyFromHost(const void *data, uint32_t size, uint32_t srcOffset = 0,
+                    uint32_t dstOffset = 0) const -> void;
+
+  /** @brief Copies data from this buffer to host memory.
+   * @param dstData Pointer to the host memory where the data will be copied.
+   * @param size The size of the data to copy.
+   * @param srcOffset The offset in the buffer from which to start copying.
+   * @param dstOffset The offset in the destination host memory where the data will be copied.
+   */
+  auto copyToHost(void *dstData, uint32_t size, uint32_t srcOffset = 0,
+                  uint32_t dstOffset = 0) const -> void;
 
 private:
   vk::raii::Buffer m_buffer = nullptr;
   vk::raii::DeviceMemory m_bufferMemory = nullptr;
-  vksim::Device &m_device;
+  VulkanContext &m_context;
 };
 
 } // namespace vksim

@@ -5,6 +5,7 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "vksim/core/buffers/Image.hpp"
+#include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/resources/Resource.hpp"
 
 namespace vksim
@@ -15,11 +16,11 @@ class Texture : public Resource
 {
 public:
   /** @brief Constructs a new texture resource.
-   * @param device Reference to the Vulkan device for resource management.
+   * @param context Reference to the Vulkan context for resource management.
    * @param identifier Unique identifier for the texture.
    * @param filePath Path to the texture image file.
    */
-  explicit Texture(Device &device, const std::string &identifier, std::string filePath);
+  explicit Texture(VulkanContext &context, const std::string &identifier, std::string filePath);
 
   Texture(const Texture &) = delete;
   Texture(Texture &&) noexcept = default;
@@ -30,10 +31,9 @@ public:
   ~Texture() override = default;
 
   /** @brief Loads the texture resource.
-   * @param uploadContext Upload command context that keeps staging buffers alive.
    * @return True if the texture was successfully loaded, false otherwise.
    */
-  auto doLoad(UploadContext &uploadContext) -> bool override;
+  auto doLoad() -> bool override;
 
   /** @brief Returns the underlying Vulkan image.
    * @return Reference to the Vulkan image.
@@ -52,9 +52,10 @@ public:
 
 private:
   /** @brief Loads the texture from a file and creates the necessary Vulkan resources.
-   * @param uploadContext Upload command context that keeps staging buffers alive.
+   * @note This method is called by doLoad() and is responsible for reading the image file, creating
+   * the Vulkan image, allocating memory, and setting up the image view and sampler.
    */
-  auto loadFromFile(UploadContext &uploadContext) -> void;
+  auto loadFromFile() -> void;
 
   /** @brief Creates an image view for the texture. */
   auto createImageView() -> void;
@@ -67,7 +68,7 @@ private:
   vk::raii::ImageView m_imageView = nullptr; // Shader-accessible view into the image
   vk::raii::Sampler m_sampler = nullptr;     // Sampling configuration (filtering, wrapping, etc.)
 
-  std::string m_filePath; // Path to the texture image file
-  Device &m_device;       // Reference to the Vulkan device for resource management
+  std::string m_filePath;   // Path to the texture image file
+  VulkanContext &m_context; // Reference to the Vulkan context for resource management
 };
 } // namespace vksim

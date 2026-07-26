@@ -49,23 +49,25 @@ auto LBMFluid<T, U>::createBuffers() -> void
   auto totalCells = m_voxelgrid->getTotalCells();
 
   // Create a buffer for LBM configuration parameters (lattice configuration).
-  m_LBMConfigBuffer.emplace(m_context.getDevice());
+  m_LBMConfigBuffer.emplace(m_context);
   m_LBMConfigBuffer->create(BufferCreateInfo{.size = sizeof(m_latticeConfig),
                                              .usage = vk::BufferUsageFlagBits::eUniformBuffer |
                                                       vk::BufferUsageFlagBits::eTransferDst,
                                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                                              .debugName = "LBMConfigBuffer"});
+  m_LBMConfigBuffer->copyFromHost(&m_latticeConfig, sizeof(m_latticeConfig));
 
   // Create buffer for fluid properties (tau, rho, etc.).
-  m_fluidInfoBuffer.emplace(m_context.getDevice());
+  m_fluidInfoBuffer.emplace(m_context);
   m_fluidInfoBuffer->create(BufferCreateInfo{.size = sizeof(FluidInfo),
                                              .usage = vk::BufferUsageFlagBits::eUniformBuffer |
                                                       vk::BufferUsageFlagBits::eTransferDst,
                                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                                              .debugName = "LBMFluidInfoBuffer"});
+  m_fluidInfoBuffer->copyFromHost(&m_fluidSimulationInfo.fluidInfo, sizeof(FluidInfo));
 
   // Create a buffer for fluid distribution functions for each cell in the voxel grid.
-  m_fluidDistributionBuffer.emplace(m_context.getDevice());
+  m_fluidDistributionBuffer.emplace(m_context);
   m_fluidDistributionBuffer->create(BufferCreateInfo{
       .size = static_cast<size_t>(totalCells * m_latticeConfig.Q * sizeof(U) * 2),
       .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
@@ -73,7 +75,7 @@ auto LBMFluid<T, U>::createBuffers() -> void
       .debugName = "LBMFluidDistributionBuffer"});
 
   // Create buffers for the Marching Cubes output.
-  m_vertexCountBuffer.emplace(m_context.getDevice());
+  m_vertexCountBuffer.emplace(m_context);
   m_vertexCountBuffer->create(BufferCreateInfo{
       .size = sizeof(uint32_t),
       .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst |
@@ -81,89 +83,21 @@ auto LBMFluid<T, U>::createBuffers() -> void
       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
       .debugName = "MCubesVertexCountBuffer"});
 
-  m_positionBuffer.emplace(m_context.getDevice());
+  m_positionBuffer.emplace(m_context);
   m_positionBuffer->create(BufferCreateInfo{
       .size = static_cast<size_t>(totalCells * 15 * sizeof(glm::vec4)),
       .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eVertexBuffer,
       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
       .debugName = "MCubesPositionBuffer"});
 
-  m_normalBuffer.emplace(m_context.getDevice());
+  m_normalBuffer.emplace(m_context);
   m_normalBuffer->create(BufferCreateInfo{
       .size = static_cast<size_t>(totalCells * 15 * sizeof(glm::vec4)),
       .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eVertexBuffer,
       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
       .debugName = "MCubesNormalBuffer"});
 
-  // Allocate a command buffer from the command pool associated with the default transfer queue.
-  const auto &defaultQueue = m_context.getDefaultTransferQueue();
-  const auto &commandPool = m_context.getCommandPool(defaultQueue.familyIndex);
-  vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool.get(),
-                                          .level = vk::CommandBufferLevel::ePrimary,
-                                          .commandBufferCount = 1};
-  auto commandBuffers = vk::raii::CommandBuffers(m_context.getDevice().logical(), allocInfo);
-
-  vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-  commandBuffers.front().begin(beginInfo);
-
-  // Staging buffers must survive until copy operations are complete.
-  std::vector<Buffer> stagingBuffers;
-
-  {
-    stagingBuffers.emplace_back(m_context.getDevice());
-    auto &stagingBuffer = stagingBuffers.back();
-    stagingBuffer.create(BufferCreateInfo{.size = sizeof(m_latticeConfig),
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-
-    auto *mappedMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, sizeof(m_latticeConfig));
-    std::memcpy(mappedMemory, &m_latticeConfig, sizeof(m_latticeConfig));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_LBMConfigBuffer->copyFromBuffer(stagingBuffer, sizeof(m_latticeConfig),
-                                      commandBuffers.front());
-  }
-
-  {
-    stagingBuffers.emplace_back(m_context.getDevice());
-    auto &stagingBuffer = stagingBuffers.back();
-    stagingBuffer.create(BufferCreateInfo{.size = sizeof(FluidSimulationInfo),
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-
-    auto *mappedMemory =
-        stagingBuffer.getVkBufferMemory().mapMemory(0, sizeof(FluidSimulationInfo));
-    std::memcpy(mappedMemory, &m_fluidSimulationInfo, sizeof(FluidSimulationInfo));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_fluidInfoBuffer->copyFromBuffer(stagingBuffer, sizeof(FluidSimulationInfo),
-                                      commandBuffers.front());
-  }
-
-  {
-    stagingBuffers.emplace_back(m_context.getDevice());
-    auto &stagingBuffer = stagingBuffers.back();
-    stagingBuffer.create(BufferCreateInfo{.size = totalCells * m_latticeConfig.Q * sizeof(U) * 2,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-
-    auto *mappedMemory = stagingBuffer.getVkBufferMemory().mapMemory(
-        0, totalCells * m_latticeConfig.Q * sizeof(U) * 2);
-    std::memset(mappedMemory, 0, totalCells * m_latticeConfig.Q * sizeof(U) * 2);
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_fluidDistributionBuffer->copyFromBuffer(
-        stagingBuffer, totalCells * m_latticeConfig.Q * sizeof(U) * 2, commandBuffers.front());
-  }
-
-  commandBuffers.front().end();
-
-  vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffers.front()};
-  defaultQueue.vkQueue.submit(submitInfo, nullptr);
-  defaultQueue.vkQueue.waitIdle();
+  m_LBMConfigBuffer->copyFromHost(&m_latticeConfig, sizeof(m_latticeConfig));
 }
 
 template <typename T, typename U>

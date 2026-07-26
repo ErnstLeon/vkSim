@@ -50,9 +50,9 @@ public:
   auto operator=(Image &&) -> Image & = delete;
 
   /** @brief Initializes an Image with the specified create info.
-   * @param device The Vulkan device to use for image creation.
+   * @param context Reference to the Vulkan context for access to GPU resources.
    */
-  Image(vksim::Device &device);
+  Image(VulkanContext &context);
 
   /** @brief Creates a Vulkan image with the specified create info. This method allocates the
    * image and its associated memory, and binds them together. It must be called after the Image
@@ -107,6 +107,12 @@ public:
                         vk::PipelineStageFlags2 dst_stage_mask, vk::ImageAspectFlagBits aspect,
                         vk::raii::CommandBuffer &commandBuffer) -> void;
 
+  /** @brief Copies data from host memory to the image.
+   * @param data Pointer to the host memory containing the data to copy.
+   * @param size The size of the data to copy.
+   */
+  auto copyFromHost(const void *data, uint32_t size) -> void;
+
 private:
   vk::raii::Image m_image = nullptr;
   vk::raii::DeviceMemory m_imageMemory = nullptr;
@@ -114,7 +120,7 @@ private:
   uint32_t m_width{};
   uint32_t m_height{};
 
-  vksim::Device &m_device;
+  VulkanContext &m_context;
 };
 
 } // namespace vksim

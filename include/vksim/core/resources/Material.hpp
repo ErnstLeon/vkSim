@@ -8,7 +8,9 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
+#include "vksim/core/buffers/Buffer.hpp"
 #include "vksim/core/buffers/Image.hpp"
+#include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/resources/Resource.hpp"
 
 namespace vksim
@@ -29,13 +31,24 @@ struct MaterialInfo
 class Material : public Resource
 {
 public:
-  Material(Device &device, const std::string &identifier, const MaterialInfo &properties);
+  /** @brief Constructs a new material resource.
+   * @param context Reference to the Vulkan context for resource management.
+   * @param identifier Unique identifier for the material.
+   * @param properties Properties of the material, including base color, metallic, and roughness
+   * values.
+   */
+  Material(VulkanContext &context, const std::string &identifier, const MaterialInfo &properties);
 
   [[nodiscard]] auto getBaseColor() const -> const glm::vec3 &;
   [[nodiscard]] auto getMetallic() const -> float;
   [[nodiscard]] auto getRoughness() const -> float;
 
-  auto doLoad(UploadContext &uploadContext) -> bool override;
+  /** @brief Loads the material resource by creating a uniform buffer on the GPU and uploading the
+   * material properties to it. This method is called by the ResourceManager during resource
+   * loading.
+   * @return True if the material was successfully loaded, false otherwise.
+   */
+  auto doLoad() -> bool override;
 
   /** @brief Returns the buffer associated with the material. */
   [[nodiscard]] auto getBuffer() const -> const Buffer & { return m_materialUniformBuffer; }
@@ -50,6 +63,6 @@ private:
   MaterialInfo m_material;
   Buffer m_materialUniformBuffer;
 
-  Device &m_device;
+  VulkanContext &m_context;
 };
 } // namespace vksim

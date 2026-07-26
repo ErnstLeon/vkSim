@@ -7,8 +7,8 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
+#include "vksim/core/context/VulkanContext.hpp"
 #include "vksim/core/resources/Resource.hpp"
-#include "vksim/core/resources/UploadContext.hpp"
 
 namespace vksim
 {
@@ -27,13 +27,12 @@ public:
    * @tparam T Type of the resource to load.
    * @param resourceId Unique identifier for the resource.
    * @param filepath Path to the resource file.
-   * @param uploadContext Upload command context that keeps staging buffers alive.
    * @return Pointer to the loaded resource instance.
    */
   template <typename T, typename... Args>
     requires std::is_base_of_v<Resource, T>
-  auto load(const std::string &resourceId, VulkanContext &context, UploadContext &uploadContext,
-            Args &&...args) -> std::expected<T *, std::string>
+  auto load(const std::string &resourceId, VulkanContext &context, Args &&...args)
+      -> std::expected<T *, std::string>
   {
     auto &typeResources = resources[typeid(T)];
     auto iter = typeResources.find(resourceId);
@@ -42,9 +41,8 @@ public:
       return std::expected<T *, std::string>(static_cast<T *>(iter->second.get()));
     }
 
-    auto resource =
-        std::make_unique<T>(context.getDevice(), resourceId, std::forward<Args>(args)...);
-    if (!resource->Load(uploadContext))
+    auto resource = std::make_unique<T>(context, resourceId, std::forward<Args>(args)...);
+    if (!resource->Load())
     {
       return std::expected<T *, std::string>(std::unexpect,
                                              "Failed to load resource: " + resourceId);

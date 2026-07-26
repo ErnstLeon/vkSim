@@ -13,7 +13,6 @@ target_sources(vksim
     ${CMAKE_SOURCE_DIR}/src/core/scene/Light.cpp
     ${CMAKE_SOURCE_DIR}/src/core/scene/Scene.cpp
     ${CMAKE_SOURCE_DIR}/src/core/scene/SceneObject.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/resources/UploadContext.cpp
     ${CMAKE_SOURCE_DIR}/src/core/resources/Texture.cpp
     ${CMAKE_SOURCE_DIR}/src/core/resources/Mesh.cpp
     ${CMAKE_SOURCE_DIR}/src/core/resources/Material.cpp
@@ -43,7 +42,6 @@ target_sources(vksim
       ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/Light.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/Scene.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/scene/SceneObject.hpp
-      ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/UploadContext.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/ResourceManager.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Texture.hpp
       ${CMAKE_SOURCE_DIR}/include/vksim/core/resources/Mesh.hpp

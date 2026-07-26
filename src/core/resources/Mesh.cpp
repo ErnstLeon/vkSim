@@ -22,15 +22,16 @@ auto Vertex::operator==(const Vertex &other) const -> bool
   return pos == other.pos && normal == other.normal && uv == other.uv;
 }
 
-Mesh::Mesh(Device &device, const std::string &identifier, std::string filePath)
-    : Resource(identifier), m_filePath(std::move(filePath)), m_device(device),
-      m_positionsBuffer(device), m_normalsBuffer(device), m_uvsBuffer(device), m_indexBuffer(device)
+Mesh::Mesh(VulkanContext &context, const std::string &identifier, std::string filePath)
+    : Resource(identifier), m_filePath(std::move(filePath)), m_context(context),
+      m_positionsBuffer(context), m_normalsBuffer(context), m_uvsBuffer(context),
+      m_indexBuffer(context)
 {
 }
 
-auto Mesh::doLoad(UploadContext &uploadContext) -> bool
+auto Mesh::doLoad() -> bool
 {
-  loadFromFile(uploadContext);
+  loadFromFile();
 
   spdlog::info("Mesh {} loaded successfully with {} vertices and {} indices", GetId(),
                positions.size(), indices.size());
@@ -88,7 +89,7 @@ auto Mesh::getAABB() const -> std::pair<glm::vec3, glm::vec3>
   return {min, max};
 }
 
-auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
+auto Mesh::loadFromFile() -> void
 {
   // Load the mesh using tinyobjloader
   tinyobj::attrib_t attrib;
@@ -174,124 +175,44 @@ auto Mesh::loadFromFile(UploadContext &uploadContext) -> void
   vk::DeviceSize uvsBufferSize = sizeof(uvs[0]) * uvs.size();
   vk::DeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
 
-  // Copy the vertex and index data to gpu buffers using staging buffers and the provided command
-  // buffer in the UploadContext
-  {
-    // Create the vertex buffer for positions
-    m_positionsBuffer.create(BufferCreateInfo{
-        .size = positionsBufferSize,
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-                 vk::BufferUsageFlagBits::eTransferDst,
-        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal});
-
-    // Create the vertex buffer for normals
-    auto stagingBuffer = Buffer(m_device);
-    stagingBuffer.create(BufferCreateInfo{.size = positionsBufferSize,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent,
-                                          .debugName = "PositionsStagingBuffer"});
-
-    // Map the staging buffers and copy the vertex and index data into them
-    auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, positionsBufferSize);
-    std::memcpy(stagingBufferMemory, positions.data(), static_cast<size_t>(positionsBufferSize));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_positionsBuffer.copyFromBuffer(stagingBuffer, static_cast<uint32_t>(positionsBufferSize),
-                                     uploadContext.getCommandBuffer());
-
-    // Add the staging buffer to the UploadContext to ensure it remains alive until the upload is
-    // complete
-    uploadContext.addStagingBuffer(std::move(stagingBuffer));
-  }
-
-  // Copy the normals data to gpu buffers using staging buffers and the provided command buffer in
-  // the UploadContext
-  {
-    // Create the vertex buffer for normals
-    m_normalsBuffer.create(BufferCreateInfo{.size = normalsBufferSize,
+  // Copy the vertex and index data to gpu buffers using staging buffers
+  // Create the vertex buffer for positions
+  m_positionsBuffer.create(BufferCreateInfo{.size = positionsBufferSize,
                                             .usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                                                     vk::BufferUsageFlagBits::eStorageBuffer |
                                                      vk::BufferUsageFlagBits::eTransferDst,
                                             .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                            .debugName = "NormalsBuffer"});
+                                            .debugName = "VertexPositionsBuffer"});
 
-    // Create a staging buffer for normals
-    auto stagingBuffer = Buffer(m_device);
-    stagingBuffer.create(BufferCreateInfo{.size = normalsBufferSize,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
+  m_positionsBuffer.copyFromHost(positions.data(), positionsBufferSize);
 
-    auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, normalsBufferSize);
-    std::memcpy(stagingBufferMemory, normals.data(), static_cast<size_t>(normalsBufferSize));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_normalsBuffer.copyFromBuffer(stagingBuffer, static_cast<uint32_t>(normalsBufferSize),
-                                   uploadContext.getCommandBuffer());
-
-    // Add the staging buffer to the UploadContext to ensure it remains alive until the upload is
-    // complete
-    uploadContext.addStagingBuffer(std::move(stagingBuffer));
-  }
-
-  // Copy the uvs data to gpu buffers using staging buffers and the provided command buffer in the
-  // UploadContext
-  {
-    // Create the vertex buffer for uvs
-    m_uvsBuffer.create(BufferCreateInfo{.size = uvsBufferSize,
-                                        .usage = vk::BufferUsageFlagBits::eVertexBuffer |
-                                                 vk::BufferUsageFlagBits::eTransferDst,
-                                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                        .debugName = "UVsBuffer"});
-
-    // Create a staging buffer for uvs
-    auto stagingBuffer = Buffer(m_device);
-    stagingBuffer.create(BufferCreateInfo{.size = uvsBufferSize,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
-
-    auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, uvsBufferSize);
-    std::memcpy(stagingBufferMemory, uvs.data(), static_cast<size_t>(uvsBufferSize));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
-
-    m_uvsBuffer.copyFromBuffer(stagingBuffer, static_cast<uint32_t>(uvsBufferSize),
-                               uploadContext.getCommandBuffer());
-
-    // Add the staging buffer to the UploadContext to ensure it remains alive until the upload is
-    // complete
-    uploadContext.addStagingBuffer(std::move(stagingBuffer));
-  }
-
-  // Copy the index data to gpu buffers using staging buffers and the provided command buffer in the
-  // UploadContext
-  {
-    // Create the index buffer
-    m_indexBuffer.create(BufferCreateInfo{.size = indexBufferSize,
-                                          .usage = vk::BufferUsageFlagBits::eIndexBuffer |
-                                                   vk::BufferUsageFlagBits::eStorageBuffer |
+  // Create the vertex buffer for normals
+  m_normalsBuffer.create(BufferCreateInfo{.size = normalsBufferSize,
+                                          .usage = vk::BufferUsageFlagBits::eVertexBuffer |
                                                    vk::BufferUsageFlagBits::eTransferDst,
                                           .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                          .debugName = "IndexBuffer"});
+                                          .debugName = "VertexNormalsBuffer"});
 
-    // Create a staging buffer for indices
-    auto stagingBuffer = Buffer(m_device);
-    stagingBuffer.create(BufferCreateInfo{.size = indexBufferSize,
-                                          .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                                          .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent});
+  m_normalsBuffer.copyFromHost(normals.data(), normalsBufferSize);
 
-    auto *stagingBufferMemory = stagingBuffer.getVkBufferMemory().mapMemory(0, indexBufferSize);
-    std::memcpy(stagingBufferMemory, indices.data(), static_cast<size_t>(indexBufferSize));
-    stagingBuffer.getVkBufferMemory().unmapMemory();
+  // Create the vertex buffer for uvs
+  m_uvsBuffer.create(BufferCreateInfo{.size = uvsBufferSize,
+                                      .usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                                               vk::BufferUsageFlagBits::eTransferDst,
+                                      .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                      .debugName = "VertexUVsBuffer"});
 
-    m_indexBuffer.copyFromBuffer(stagingBuffer, static_cast<uint32_t>(indexBufferSize),
-                                 uploadContext.getCommandBuffer());
+  m_uvsBuffer.copyFromHost(uvs.data(), uvsBufferSize);
 
-    // Add the staging buffer to the UploadContext to ensure it remains alive until the upload is
-    // complete
-    uploadContext.addStagingBuffer(std::move(stagingBuffer));
-  }
+  // Create the index buffer
+  m_indexBuffer.create(BufferCreateInfo{.size = indexBufferSize,
+                                        .usage = vk::BufferUsageFlagBits::eIndexBuffer |
+                                                 vk::BufferUsageFlagBits::eStorageBuffer |
+                                                 vk::BufferUsageFlagBits::eTransferDst,
+                                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                        .debugName = "IndexBuffer"});
+
+  m_indexBuffer.copyFromHost(indices.data(), indexBufferSize);
 }
 
 } // namespace vksim
