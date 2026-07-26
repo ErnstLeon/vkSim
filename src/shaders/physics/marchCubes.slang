@@ -1,4 +1,10 @@
-struct VoxelizationParameters
+struct FluidInfo
+{
+  float tau;
+  float rho;
+};
+
+struct VoxelizationInfo
 {
   float4 gridMin; // xyz: min, w: cell size
   float4 gridMax; // xyz: max, w: unused
@@ -6,18 +12,21 @@ struct VoxelizationParameters
 };
 
 [[vk::binding(0, 0)]]
-ConstantBuffer<VoxelizationParameters> voxelizationParams;
+ConstantBuffer<FluidInfo> fluidInfo;
 
 [[vk::binding(1, 0)]]
-StructuredBuffer<uint8_t> density;
+ConstantBuffer<VoxelizationInfo> voxelizationInfo;
 
 [[vk::binding(2, 0)]]
-RWStructuredBuffer<float4> positions;
+StructuredBuffer<uint8_t> density;
 
 [[vk::binding(3, 0)]]
-RWStructuredBuffer<float4> normals;
+RWStructuredBuffer<float4> positions;
 
 [[vk::binding(4, 0)]]
+RWStructuredBuffer<float4> normals;
+
+[[vk::binding(5, 0)]]
 RWStructuredBuffer<uint> vertexCounter;
 
 static const int3 cornerOffset[8] = { int3(0, 0, 0), int3(0, 0, 1), int3(0, 1, 0), int3(0, 1, 1),
@@ -26,8 +35,8 @@ static const int3 cornerOffset[8] = { int3(0, 0, 0), int3(0, 0, 1), int3(0, 1, 0
 // Function to compute the 1D index from 3D coordinates
 uint Index(int x, int y, int z)
 {
-  return x + y * voxelizationParams.gridSize.x +
-         z * voxelizationParams.gridSize.x * voxelizationParams.gridSize.y;
+  return x + y * voxelizationInfo.gridSize.x +
+         z * voxelizationInfo.gridSize.x * voxelizationInfo.gridSize.y;
 }
 
 // Function to sample the density at a given 3D coordinatex
@@ -408,8 +417,8 @@ void main(uint3 id: SV_DispatchThreadID)
 [numthreads(8, 8, 8)]
 void main(uint3 id: SV_DispatchThreadID)
 {
-  if (id.x >= voxelizationParams.gridSize.x || id.y >= voxelizationParams.gridSize.y ||
-      id.z >= voxelizationParams.gridSize.z)
+  if (id.x >= voxelizationInfo.gridSize.x || id.y >= voxelizationInfo.gridSize.y ||
+      id.z >= voxelizationInfo.gridSize.z)
   {
     return;
   }
@@ -424,9 +433,9 @@ void main(uint3 id: SV_DispatchThreadID)
 
   InterlockedAdd(vertexCounter[0], 1, outIndex);
 
-  float cellSize = voxelizationParams.gridMin.w;
+  float cellSize = voxelizationInfo.gridMin.w;
 
-  float3 voxelCenter = voxelizationParams.gridMin.xyz + (float3(id) + 0.5) * cellSize;
+  float3 voxelCenter = voxelizationInfo.gridMin.xyz + (float3(id) + 0.5) * cellSize;
 
   positions[outIndex] = float4(voxelCenter, 1.0);
 }

@@ -27,7 +27,9 @@
 namespace vksim::physics
 {
 
-/** @brief Structure to hold information for creating a fluid simulation.
+/** @brief Structure to hold information for creating a fluid simulation. This is used to initialize
+ * the LBM fluid simulation and contains parameters such as relaxation time (tau), fluid density.
+ * For execution on the GPU, this structure is mirrored in the Slang shader code.
  */
 struct FluidInfo
 {
@@ -130,36 +132,34 @@ public:
 private:
   VulkanContext &m_context;
 
+  T m_latticeConfig; // Lattice configuration (e.g., D3Q15, D3Q19)
+  FluidSimulationInfo
+      m_fluidSimulationInfo; // Fluid simulation parameters (voxelgrid aabb, tau, rho, etc.)
+
   // Fluid owns the voxel grid, which is used for voxelization and Marching Cubes.
   std::optional<VoxelGrid> m_voxelgrid;
 
-  std::optional<Buffer> m_LBMConfigBuffer;         // Buffer to store LBM configuration parameters
-  std::optional<Buffer> m_fluidInfoBuffer;         // Buffer to store fluid properties
+  std::optional<Buffer> m_LBMConfigBuffer; // Buffer to store LBM configuration parameters
+  std::optional<Buffer> m_fluidInfoBuffer; // Buffer to store simulation properties (e.g., tau, rho)
   std::optional<Buffer> m_fluidDistributionBuffer; // Buffer to store fluid distribution functions
 
   std::optional<Buffer> m_positionBuffer;    // Buffer to store mesh vertex positions
   std::optional<Buffer> m_normalBuffer;      // Buffer to store mesh vertex normals
   std::optional<Buffer> m_vertexCountBuffer; // Buffer to store the number of vertices
 
-  T m_latticeConfig; // Lattice configuration (e.g., D3Q15, D3Q19)
+  // Shared descriptor pool for both LBM fluid simulation and Marching Cubes algorithm
+  vk::raii::DescriptorPool m_descriptorPool = nullptr;
 
-  FluidSimulationInfo m_fluidSimulationInfo; // Fluid simulation parameters (tau, rho, etc.)
+  // Descriptor resources and pipeline for LBM fluid simulation and Marching Cubes algorithm
+  vk::raii::DescriptorSetLayout m_lbmDescriptorSetLayout = nullptr;
+  std::vector<vk::raii::DescriptorSet> m_lbmDescriptorSets;
+  vk::raii::PipelineLayout m_lbmPipelineLayout = nullptr;
+  vk::raii::Pipeline m_lbmPipeline = nullptr;
 
-  vk::raii::DescriptorPool m_descriptorPool = nullptr; // Descriptor pool for LBM fluid resources
-  vk::raii::DescriptorSetLayout m_descriptorSetLayout =
-      nullptr; // Descriptor set layout for LBM fluid resources
-  std::vector<vk::raii::DescriptorSet> m_descriptorSets; // Descriptor sets for LBM fluid resources
-  vk::raii::PipelineLayout m_pipelineLayout = nullptr;   // Pipeline layout for the compute pipeline
-  vk::raii::Pipeline m_pipeline = nullptr; // Compute pipeline for the LBM fluid simulation
-
-  vk::raii::DescriptorSetLayout m_marchCubesDescriptorSetLayout =
-      nullptr; // Descriptor set layout for the Marching Cubes algorithm
-  std::vector<vk::raii::DescriptorSet>
-      m_marchCubesDescriptorSet; // Descriptor set for the Marching Cubes algorithm
-  vk::raii::PipelineLayout m_marchCubesPipelineLayout =
-      nullptr; // Pipeline layout for the Marching Cubes algorithm
-  vk::raii::Pipeline m_marchCubesPipeline =
-      nullptr; // Compute pipeline for the Marching Cubes algorithm
+  vk::raii::DescriptorSetLayout m_marchCubesDescriptorSetLayout = nullptr;
+  std::vector<vk::raii::DescriptorSet> m_marchCubesDescriptorSets;
+  vk::raii::PipelineLayout m_marchCubesPipelineLayout = nullptr;
+  vk::raii::Pipeline m_marchCubesPipeline = nullptr;
 };
 } // namespace vksim::physics
 

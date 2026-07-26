@@ -29,7 +29,7 @@ auto VoxelGrid::init() -> void { createBuffers(); }
 
 auto VoxelGrid::getVoxelGridBuffer() -> Buffer & { return *m_voxelGridBuffer; }
 
-auto VoxelGrid::getVoxelizationParamsBuffer() -> Buffer & { return *m_voxelizationParamsBuffer; }
+auto VoxelGrid::getVoxelizationInfoBuffer() -> Buffer & { return *m_voxelizationInfoBuffer; }
 
 [[nodiscard]] auto VoxelGrid::getCellSize() const -> float { return m_voxelizationInfo.cellSize; }
 
@@ -64,23 +64,25 @@ auto VoxelGrid::createBuffers() -> void
   // Vec4 for gridMin (xyz: min, w: cell size), gridMax (xyz: max, w: unused), and gridSize
   // (xyz: size, w: unused)
   uint32_t voxelGridParamsSize = (sizeof(glm::vec4) * 2) + (sizeof(uint32_t) * 4);
-  m_voxelizationParamsBuffer.emplace(m_context);
-  m_voxelizationParamsBuffer->create(BufferCreateInfo{
+  m_voxelizationInfoBuffer.emplace(m_context);
+  m_voxelizationInfoBuffer->create(BufferCreateInfo{
       .size = voxelGridParamsSize,
       .usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst,
       .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-      .debugName = "VoxelizationParamsBuffer"});
+      .debugName = "VoxelizationInfoBuffer"});
 
   // Copy voxelization parameters to the uniform buffer
-  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.aabb.first, sizeof(glm::vec3), 0, 0);
-  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.cellSize, sizeof(float), 0,
-                                           sizeof(glm::vec3));
-  m_voxelizationParamsBuffer->copyFromHost(&m_voxelizationInfo.aabb.second, sizeof(glm::vec3), 0,
-                                           sizeof(glm::vec4));
-  m_voxelizationParamsBuffer->copyFromHost(&m_gridSize, 3 * sizeof(uint32_t), 0,
-                                           (2 * sizeof(glm::vec4)));
-  m_voxelizationParamsBuffer->copyFromHost(&m_totalCells, sizeof(uint32_t), 0,
-                                           (2 * sizeof(glm::vec4)) + (3 * sizeof(uint32_t)));
+  // NOTE: The layout of the data in the buffer must match the layout expected in the shader. So the
+  // VoxelizationInfo struct is packed into a shader-friendly layout.
+  m_voxelizationInfoBuffer->copyFromHost(&m_voxelizationInfo.aabb.first, sizeof(glm::vec3), 0, 0);
+  m_voxelizationInfoBuffer->copyFromHost(&m_voxelizationInfo.cellSize, sizeof(float), 0,
+                                         sizeof(glm::vec3));
+  m_voxelizationInfoBuffer->copyFromHost(&m_voxelizationInfo.aabb.second, sizeof(glm::vec3), 0,
+                                         sizeof(glm::vec4));
+  m_voxelizationInfoBuffer->copyFromHost(&m_gridSize, 3 * sizeof(uint32_t), 0,
+                                         (2 * sizeof(glm::vec4)));
+  m_voxelizationInfoBuffer->copyFromHost(&m_totalCells, sizeof(uint32_t), 0,
+                                         (2 * sizeof(glm::vec4)) + (3 * sizeof(uint32_t)));
 
   spdlog::info("Voxel grid buffer created with total cells: {}", m_totalCells);
 }

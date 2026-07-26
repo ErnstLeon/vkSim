@@ -12,7 +12,11 @@
 
 namespace vksim::physics
 {
-/** @brief Structure to hold information for creating a voxel grid for the fluid simulation.
+/** @brief Structure to hold information for creating a voxel grid for the fluid simulation. This is
+ * used to initialize the voxel grid and contains parameters such as axis-aligned bounding box
+ * (AABB) and cell size.
+ * @note For execution on the GPU, this structure is not mirrored directly, but its data is used in
+ * a shader friendly layout in the Slang shader code.
  */
 struct VoxelizationInfo
 {
@@ -32,7 +36,7 @@ public:
   auto init() -> void;
 
   auto getVoxelGridBuffer() -> Buffer &;
-  auto getVoxelizationParamsBuffer() -> Buffer &;
+  auto getVoxelizationInfoBuffer() -> Buffer &;
 
   [[nodiscard]] auto getCellSize() const -> float;
   [[nodiscard]] auto getGridSize() const -> glm::u32vec3;
@@ -53,8 +57,11 @@ private:
 
   // Buffer to store voxel grid data. Each voxel is represented by a uint8_t value.
   std::optional<Buffer> m_voxelGridBuffer;
-  // Buffer to store voxelization parameters (cell size and AABB).
-  std::optional<Buffer> m_voxelizationParamsBuffer;
+
+  // Buffer to store voxelization info (cell size and AABB).
+  // Note: The layout in this buffer does not directly mirror the VoxelizationInfo structure, but is
+  // used in a shader friendly layout.
+  std::optional<Buffer> m_voxelizationInfoBuffer;
 };
 
 } // namespace vksim::physics

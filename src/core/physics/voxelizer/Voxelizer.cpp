@@ -245,9 +245,9 @@ auto Voxelizer::createDescriptorSets() -> void
 
   // Update the descriptor set for the voxelization parameters uniform buffer.
   vk::DescriptorBufferInfo voxelizationParamsBufferInfo{
-      .buffer = m_voxelGrid->get().getVoxelizationParamsBuffer().getVkBuffer(),
+      .buffer = m_voxelGrid->get().getVoxelizationInfoBuffer().getVkBuffer(),
       .offset = 0,
-      .range = sizeof(glm::vec4) * 2};
+      .range = m_voxelGrid->get().getVoxelizationInfoBuffer().getSize()};
 
   vk::WriteDescriptorSet paramsDescriptorWrites = {.dstSet = m_descriptorSets[0],
                                                    .dstBinding = 0,
