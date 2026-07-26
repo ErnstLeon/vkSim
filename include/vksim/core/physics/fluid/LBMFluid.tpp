@@ -313,7 +313,7 @@ auto LBMFluid<T, U>::createPipeline() -> void
 {
   vksim::compiler::SlangCompiler slangCompiler(PROJECT_SOURCE_DIR "/src/shaders/physics");
 
-  auto shaderCodeVert = slangCompiler.compileToSpirv("lbm.slang", "lbm", "main");
+  auto shaderCodeVert = slangCompiler.compileToSpirv("lbmSolver.slang", "lbm", "main");
   if (!shaderCodeVert)
   {
     spdlog::error("{}", shaderCodeVert.error().toString());

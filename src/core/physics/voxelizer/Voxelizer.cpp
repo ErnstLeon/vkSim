@@ -114,7 +114,7 @@ auto Voxelizer::createPipeline() -> void
   // Compile the Slang shader code to SPIR-V for the compute shader stage
   vksim::compiler::SlangCompiler slangCompiler(PROJECT_SOURCE_DIR "/src/shaders/physics");
 
-  auto shaderCodeVert = slangCompiler.compileToSpirv("voxel.slang", "voxel", "main");
+  auto shaderCodeVert = slangCompiler.compileToSpirv("voxelizer.slang", "voxel", "main");
   if (!shaderCodeVert)
   {
     spdlog::error("{}", shaderCodeVert.error().toString());
