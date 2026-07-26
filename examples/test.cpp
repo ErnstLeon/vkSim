@@ -208,6 +208,8 @@ auto main() -> int
   auto renderer = vksim::Renderer(context, scene, MAX_FRAMES_IN_FLIGHT, true);
   auto physicsEngine = vksim::physics::Engine(context, scene);
 
+  physicsEngine.voxelize(); // Voxelize the scene for fluid simulation
+
   while (!window.shouldClose())
   {
     vksim::Window::pollEvents();

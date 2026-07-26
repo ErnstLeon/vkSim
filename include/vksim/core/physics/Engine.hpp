@@ -30,18 +30,24 @@ public:
    */
   auto evolve() -> void;
 
+  /**
+   * @brief Voxelizes the scene for fluid simulation.
+   */
+  auto voxelize() -> void;
+
 private:
   /** @brief Creates command buffers for the physics simulation. */
   auto createCommandBuffers() -> void;
 
-  /** @brief Records commands into the provided command buffer for the physics simulation. */
-  auto recordCommandBuffer() -> void;
+  /** @brief Records commands into the command buffers for the physics simulation. */
+  auto recordCommandBuffers() -> void;
 
   VulkanContext &m_context;
   Scene &m_scene;
 
   std::optional<vk::QueryPool> m_queryPool;
 
+  // Command buffers for the physics simulation, including voxelization and LBM fluid simulation.
   std::vector<vk::raii::CommandBuffer> m_commandBuffers;
 
   std::optional<Voxelizer> m_voxelizer;
