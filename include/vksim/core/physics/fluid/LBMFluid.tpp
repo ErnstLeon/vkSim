@@ -48,14 +48,20 @@ auto LBMFluid<T, U>::createBuffers() -> void
 {
   auto totalCells = m_voxelgrid->getTotalCells();
 
-  // Create a buffer for LBM configuration parameters (lattice configuration).
+  // Create a buffer for LBM configuration parameters (lattice configuration (dims, Q and ping pong
+  // buffer index)).
   m_LBMConfigBuffer.emplace(m_context);
-  m_LBMConfigBuffer->create(BufferCreateInfo{.size = sizeof(m_latticeConfig),
-                                             .usage = vk::BufferUsageFlagBits::eUniformBuffer |
-                                                      vk::BufferUsageFlagBits::eTransferDst,
-                                             .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                             .debugName = "LBMConfigBuffer"});
-  m_LBMConfigBuffer->copyFromHost(&m_latticeConfig, sizeof(m_latticeConfig));
+  m_LBMConfigBuffer->create(BufferCreateInfo{
+      .size = sizeof(uint32_t) * 3, // dims, Q and ping pong buffer index
+      .usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst,
+      .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+      .debugName = "LBMConfigBuffer"});
+  m_LBMConfigBuffer->copyFromHost(&m_latticeConfig,
+                                  sizeof(uint32_t) * 2); // dims, Q
+  // Set the initial ping pong buffer index to 0
+  uint32_t pingPongIndex = 0;
+  m_LBMConfigBuffer->copyFromHost(&pingPongIndex, sizeof(uint32_t), 0,
+                                  sizeof(uint32_t) * 2); // ping pong buffer index
 
   // Create buffer for fluid properties (voxelgrid tau, rho, etc.).
   m_fluidInfoBuffer.emplace(m_context);
@@ -65,6 +71,26 @@ auto LBMFluid<T, U>::createBuffers() -> void
                                              .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                                              .debugName = "LBMFluidInfoBuffer"});
   m_fluidInfoBuffer->copyFromHost(&m_fluidSimulationInfo.fluidInfo, sizeof(FluidInfo));
+
+  // Create buffer for the lbm c and w arrays (lattice velocities and weights).
+  m_lbmCWBuffer.emplace(m_context);
+  m_lbmCWBuffer->create(BufferCreateInfo{.size = m_latticeConfig.cw.size() * sizeof(glm::vec4),
+                                         .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                                                  vk::BufferUsageFlagBits::eTransferDst,
+                                         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                         .debugName = "LBMLatticeCWBuffer"});
+  m_lbmCWBuffer->copyFromHost(m_latticeConfig.cw.data(),
+                              m_latticeConfig.cw.size() * sizeof(glm::vec4));
+
+  // Create buffer for the opposite array (opposite lattice directions).
+  m_lbmOppositeBuffer.emplace(m_context);
+  m_lbmOppositeBuffer->create(BufferCreateInfo{
+      .size = m_latticeConfig.opposite.size() * sizeof(uint32_t),
+      .usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+      .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+      .debugName = "LBMLatticeOppositeBuffer"});
+  m_lbmOppositeBuffer->copyFromHost(m_latticeConfig.opposite.data(),
+                                    m_latticeConfig.opposite.size() * sizeof(uint32_t));
 
   // Create a buffer for fluid distribution functions for each cell in the voxel grid.
   m_fluidDistributionBuffer.emplace(m_context);
@@ -105,9 +131,9 @@ auto LBMFluid<T, U>::createDescriptorPool() -> void
   // LBM + Marching Cubes resources in one pool.
   std::array<vk::DescriptorPoolSize, 2> poolSize;
   poolSize[0] =
-      vk::DescriptorPoolSize{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = 5};
+      vk::DescriptorPoolSize{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = 6};
   poolSize[1] =
-      vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = 5};
+      vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = 8};
 
   vk::DescriptorPoolCreateInfo poolCreateInfo{
       .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -127,10 +153,11 @@ template <typename T, typename U>
 auto LBMFluid<T, U>::createDescriptorSetLayout() -> void
 {
   // Create descriptor set layout for LBM fluid simulation, including uniform and storage buffers.
-  // Bindings for LBM simulation: 0 - LBMConfigBuffer, 1 - FluidInfoBuffer, 2 -
-  // VoxelizationInfoBuffer, 3 - FluidDistributionBuffer
+  // Bindings for LBM simulation: 0 - LBMConfigInfo, 1 - FluidInfoBuffer, 2 -
+  // VoxelizationInfoBuffer, 3 - LBMCWBuffer, 4 - OppositeBuffer, 5 - Voxelgrid, 6 -
+  // FluidDistributionBuffer
   {
-    std::array<vk::DescriptorSetLayoutBinding, 4> bindings = {{
+    std::array<vk::DescriptorSetLayoutBinding, 7> bindings = {{
         {.binding = 0,
          .descriptorType = vk::DescriptorType::eUniformBuffer,
          .descriptorCount = 1,
@@ -144,6 +171,18 @@ auto LBMFluid<T, U>::createDescriptorSetLayout() -> void
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
         {.binding = 3,
+         .descriptorType = vk::DescriptorType::eStorageBuffer,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eCompute},
+        {.binding = 4,
+         .descriptorType = vk::DescriptorType::eStorageBuffer,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eCompute},
+        {.binding = 5,
+         .descriptorType = vk::DescriptorType::eStorageBuffer,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eCompute},
+        {.binding = 6,
          .descriptorType = vk::DescriptorType::eStorageBuffer,
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
@@ -159,10 +198,11 @@ auto LBMFluid<T, U>::createDescriptorSetLayout() -> void
   }
 
   // Create descriptor set layout for Marching Cubes, including uniform and storage buffers.
-  // Bindings for Marching Cubes: 0 - FluidInfoBuffer, 1 - VoxelizationInfoBuffer, 2 -
-  // VoxelGridBuffer, 3 - PositionBuffer, 4 - NormalBuffer, 5 - VertexCountBuffer
+  // Bindings for Marching Cubes: 0 - LBMConfigInfo, 1 - FluidInfoBuffer, 2 -
+  // VoxelizationInfoBuffer, 3 - VoxelGridBuffer, 4 - PositionBuffer, 5 - NormalBuffer, 6 -
+  // VertexCountBuffer VoxelGridBuffer, 4 - PositionBuffer, 5 - NormalBuffer, 6 - VertexCountBuffer
   {
-    std::array<vk::DescriptorSetLayoutBinding, 6> bindings = {{
+    std::array<vk::DescriptorSetLayoutBinding, 7> bindings = {{
         {.binding = 0,
          .descriptorType = vk::DescriptorType::eUniformBuffer,
          .descriptorCount = 1,
@@ -172,7 +212,7 @@ auto LBMFluid<T, U>::createDescriptorSetLayout() -> void
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
         {.binding = 2,
-         .descriptorType = vk::DescriptorType::eStorageBuffer,
+         .descriptorType = vk::DescriptorType::eUniformBuffer,
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
         {.binding = 3,
@@ -184,6 +224,10 @@ auto LBMFluid<T, U>::createDescriptorSetLayout() -> void
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
         {.binding = 5,
+         .descriptorType = vk::DescriptorType::eStorageBuffer,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eCompute},
+        {.binding = 6,
          .descriptorType = vk::DescriptorType::eStorageBuffer,
          .descriptorCount = 1,
          .stageFlags = vk::ShaderStageFlagBits::eCompute},
@@ -211,9 +255,11 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
                                             .pSetLayouts = &*m_lbmDescriptorSetLayout};
     m_lbmDescriptorSets = m_context.getDevice().logical().allocateDescriptorSets(allocInfo);
 
-    // Update descriptor sets with buffer information for LBM Configuration (e.g., D3Q15)
-    vk::DescriptorBufferInfo lbmConfigBufferInfo{
-        .buffer = m_LBMConfigBuffer->getVkBuffer(), .offset = 0, .range = sizeof(m_latticeConfig)};
+    // Update descriptor sets with buffer information for LBM Configuration (e.g., D=3 and Q=15,
+    // ping pong buffer index)
+    vk::DescriptorBufferInfo lbmConfigBufferInfo{.buffer = m_LBMConfigBuffer->getVkBuffer(),
+                                                 .offset = 0,
+                                                 .range = m_LBMConfigBuffer->getSize()};
     vk::WriteDescriptorSet lbmConfigDescriptorWrites{.dstSet = m_lbmDescriptorSets[0],
                                                      .dstBinding = 0,
                                                      .dstArrayElement = 0,
@@ -248,6 +294,44 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .pBufferInfo = &voxelizationInfoBufferInfo};
 
+    // Update descriptor sets with buffer information for LBMCWBuffer (lattice velocities and
+    // weights)
+    vk::DescriptorBufferInfo lbmCWBufferInfo{
+        .buffer = m_lbmCWBuffer->getVkBuffer(), .offset = 0, .range = m_lbmCWBuffer->getSize()};
+    vk::WriteDescriptorSet lbmCWDescriptorWrites{.dstSet = m_lbmDescriptorSets[0],
+                                                 .dstBinding = 3,
+                                                 .dstArrayElement = 0,
+                                                 .descriptorCount = 1,
+                                                 .descriptorType =
+                                                     vk::DescriptorType::eStorageBuffer,
+                                                 .pBufferInfo = &lbmCWBufferInfo};
+
+    // Update descriptor sets with buffer information for OppositeBuffer (opposite lattice
+    // directions)
+    vk::DescriptorBufferInfo lbmOppositeBufferInfo{.buffer = m_lbmOppositeBuffer->getVkBuffer(),
+                                                   .offset = 0,
+                                                   .range = m_lbmOppositeBuffer->getSize()};
+    vk::WriteDescriptorSet lbmOppositeDescriptorWrites{.dstSet = m_lbmDescriptorSets[0],
+                                                       .dstBinding = 4,
+                                                       .dstArrayElement = 0,
+                                                       .descriptorCount = 1,
+                                                       .descriptorType =
+                                                           vk::DescriptorType::eStorageBuffer,
+                                                       .pBufferInfo = &lbmOppositeBufferInfo};
+
+    // Update voxel grid buffer descriptor set
+    vk::DescriptorBufferInfo voxelGridBufferInfo{
+        .buffer = m_voxelgrid->getVoxelGridBuffer().getVkBuffer(),
+        .offset = 0,
+        .range = m_voxelgrid->getVoxelGridBuffer().getSize()};
+    vk::WriteDescriptorSet voxelGridDescriptorWrites{.dstSet = m_lbmDescriptorSets[0],
+                                                     .dstBinding = 5,
+                                                     .dstArrayElement = 0,
+                                                     .descriptorCount = 1,
+                                                     .descriptorType =
+                                                         vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &voxelGridBufferInfo};
+
     // Update descriptor sets with buffer information for Fluid Distribution Functions
     vk::DescriptorBufferInfo fluidDistributionBufferInfo{
         .buffer = m_fluidDistributionBuffer->getVkBuffer(),
@@ -255,7 +339,7 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
         .range = m_fluidDistributionBuffer->getSize()};
     vk::WriteDescriptorSet fluidDistributionDescriptorWrites{
         .dstSet = m_lbmDescriptorSets[0],
-        .dstBinding = 3,
+        .dstBinding = 6,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -263,6 +347,7 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
 
     m_context.getDevice().logical().updateDescriptorSets(
         {lbmConfigDescriptorWrites, fluidInfoDescriptorWrites, voxelizationInfoDescriptorWrites,
+         lbmCWDescriptorWrites, lbmOppositeDescriptorWrites, voxelGridDescriptorWrites,
          fluidDistributionDescriptorWrites},
         {});
 
@@ -276,12 +361,25 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
                                             .pSetLayouts = &*m_marchCubesDescriptorSetLayout};
     m_marchCubesDescriptorSets = m_context.getDevice().logical().allocateDescriptorSets(allocInfo);
 
+    // Update descriptor sets with buffer information for LBM Configuration (e.g., D=3 and Q=15,
+    // ping pong buffer index)
+    vk::DescriptorBufferInfo lbmConfigBufferInfo{.buffer = m_LBMConfigBuffer->getVkBuffer(),
+                                                 .offset = 0,
+                                                 .range = m_LBMConfigBuffer->getSize()};
+    vk::WriteDescriptorSet lbmConfigDescriptorWrites{.dstSet = m_lbmDescriptorSets[0],
+                                                     .dstBinding = 0,
+                                                     .dstArrayElement = 0,
+                                                     .descriptorCount = 1,
+                                                     .descriptorType =
+                                                         vk::DescriptorType::eUniformBuffer,
+                                                     .pBufferInfo = &lbmConfigBufferInfo};
+
     // Update descriptor sets with buffer information for Fluid Info (e.g., tau, rho)
     vk::DescriptorBufferInfo fluidInfoBufferInfo{.buffer = m_fluidInfoBuffer->getVkBuffer(),
                                                  .offset = 0,
                                                  .range = m_fluidInfoBuffer->getSize()};
     vk::WriteDescriptorSet fluidInfoDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
-                                                     .dstBinding = 0,
+                                                     .dstBinding = 1,
                                                      .dstArrayElement = 0,
                                                      .descriptorCount = 1,
                                                      .descriptorType =
@@ -295,31 +393,32 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
         .range = m_voxelgrid->getVoxelizationInfoBuffer().getSize()};
     vk::WriteDescriptorSet voxelizationInfoDescriptorWrites{
         .dstSet = m_marchCubesDescriptorSets[0],
-        .dstBinding = 1,
+        .dstBinding = 2,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .pBufferInfo = &voxelizationInfoBufferInfo};
 
-    // Update descriptor sets with buffer information for Voxel Grid
-    vk::DescriptorBufferInfo voxelGridBufferInfo{
-        .buffer = m_voxelgrid->getVoxelGridBuffer().getVkBuffer(),
-        .offset = 0,
-        .range = m_voxelgrid->getVoxelGridBuffer().getSize()};
-    vk::WriteDescriptorSet voxelGridDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
-                                                     .dstBinding = 2,
-                                                     .dstArrayElement = 0,
-                                                     .descriptorCount = 1,
-                                                     .descriptorType =
-                                                         vk::DescriptorType::eStorageBuffer,
-                                                     .pBufferInfo = &voxelGridBufferInfo};
+    // Update descriptor sets with buffer information for the distribution buffer (fluid
+    // distribution functions)
+    vk::DescriptorBufferInfo distributionBufferInfo{.buffer =
+                                                        m_fluidDistributionBuffer->getVkBuffer(),
+                                                    .offset = 0,
+                                                    .range = m_fluidDistributionBuffer->getSize()};
+    vk::WriteDescriptorSet distributionDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
+                                                        .dstBinding = 3,
+                                                        .dstArrayElement = 0,
+                                                        .descriptorCount = 1,
+                                                        .descriptorType =
+                                                            vk::DescriptorType::eStorageBuffer,
+                                                        .pBufferInfo = &distributionBufferInfo};
 
     // Update descriptor sets with buffer information for Position Buffer
     vk::DescriptorBufferInfo positionBufferInfo{.buffer = m_positionBuffer->getVkBuffer(),
                                                 .offset = 0,
                                                 .range = m_positionBuffer->getSize()};
     vk::WriteDescriptorSet positionDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
-                                                    .dstBinding = 3,
+                                                    .dstBinding = 4,
                                                     .dstArrayElement = 0,
                                                     .descriptorCount = 1,
                                                     .descriptorType =
@@ -330,7 +429,7 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
     vk::DescriptorBufferInfo normalBufferInfo{
         .buffer = m_normalBuffer->getVkBuffer(), .offset = 0, .range = m_normalBuffer->getSize()};
     vk::WriteDescriptorSet normalDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
-                                                  .dstBinding = 4,
+                                                  .dstBinding = 5,
                                                   .dstArrayElement = 0,
                                                   .descriptorCount = 1,
                                                   .descriptorType =
@@ -342,7 +441,7 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
                                                    .offset = 0,
                                                    .range = m_vertexCountBuffer->getSize()};
     vk::WriteDescriptorSet vertexCountDescriptorWrites{.dstSet = m_marchCubesDescriptorSets[0],
-                                                       .dstBinding = 5,
+                                                       .dstBinding = 6,
                                                        .dstArrayElement = 0,
                                                        .descriptorCount = 1,
                                                        .descriptorType =
@@ -350,7 +449,7 @@ auto LBMFluid<T, U>::createDescriptorSets() -> void
                                                        .pBufferInfo = &vertexCountBufferInfo};
 
     m_context.getDevice().logical().updateDescriptorSets(
-        {fluidInfoDescriptorWrites, voxelizationInfoDescriptorWrites, voxelGridDescriptorWrites,
+        {fluidInfoDescriptorWrites, voxelizationInfoDescriptorWrites, distributionDescriptorWrites,
          positionDescriptorWrites, normalDescriptorWrites, vertexCountDescriptorWrites},
         {});
 

@@ -140,6 +140,10 @@ private:
   std::optional<VoxelGrid> m_voxelgrid;
 
   std::optional<Buffer> m_LBMConfigBuffer; // Buffer to store LBM configuration parameters
+  std::optional<Buffer>
+      m_lbmCWBuffer; // Buffer to store lattice velocities and weights for LBM simulation
+  std::optional<Buffer>
+      m_lbmOppositeBuffer; // Buffer to store opposite lattice directions for LBM simulation
   std::optional<Buffer> m_fluidInfoBuffer; // Buffer to store simulation properties (e.g., tau, rho)
   std::optional<Buffer> m_fluidDistributionBuffer; // Buffer to store fluid distribution functions
 
