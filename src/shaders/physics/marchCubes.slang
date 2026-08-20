@@ -1,3 +1,10 @@
+struct LBMConfigInfo
+{
+  uint dims;
+  uint Q;
+  uint pingPongBufferIndex;
+};
+
 struct FluidInfo
 {
   float tau;
@@ -12,35 +19,55 @@ struct VoxelizationInfo
 };
 
 [[vk::binding(0, 0)]]
-ConstantBuffer<FluidInfo> fluidInfo;
+ConstantBuffer<LBMConfigInfo> lbmConfigInfo;
 
 [[vk::binding(1, 0)]]
-ConstantBuffer<VoxelizationInfo> voxelizationInfo;
+ConstantBuffer<FluidInfo> fluidInfo;
 
 [[vk::binding(2, 0)]]
-StructuredBuffer<uint8_t> density;
+ConstantBuffer<VoxelizationInfo> voxelizationInfo;
 
 [[vk::binding(3, 0)]]
-RWStructuredBuffer<float4> positions;
+RWStructuredBuffer<float> distribution;
 
 [[vk::binding(4, 0)]]
-RWStructuredBuffer<float4> normals;
+RWStructuredBuffer<float4> positions;
 
 [[vk::binding(5, 0)]]
+RWStructuredBuffer<float4> normals;
+
+[[vk::binding(6, 0)]]
 RWStructuredBuffer<uint> vertexCounter;
 
 static const int3 cornerOffset[8] = { int3(0, 0, 0), int3(0, 0, 1), int3(0, 1, 0), int3(0, 1, 1),
                                       int3(1, 0, 0), int3(1, 0, 1), int3(1, 1, 0), int3(1, 1, 1) };
 
 // Function to compute the 1D index from 3D coordinates
-uint Index(int x, int y, int z)
+uint CellIndex(uint3 p)
 {
-  return x + y * voxelizationInfo.gridSize.x +
-         z * voxelizationInfo.gridSize.x * voxelizationInfo.gridSize.y;
+  return p.x + voxelizationInfo.gridSize.x * (p.y + voxelizationInfo.gridSize.y * p.z);
+}
+
+// Function to compute the index for the distribution function in the ping-pong buffer
+uint DistributionIndex(uint ping, uint3 p, uint q)
+{
+  uint cells =
+      voxelizationInfo.gridSize.x * voxelizationInfo.gridSize.y * voxelizationInfo.gridSize.z;
+
+  return ping * cells * lbmConfigInfo.Q + CellIndex(p) * lbmConfigInfo.Q + q;
 }
 
 // Function to sample the density at a given 3D coordinatex
-float Sample(int3 p) { return density[Index(p.x, p.y, p.z)]; }
+// To do so, we must average over the distribution functions for all directions at that cell
+float Sample(int3 p)
+{
+  float sum = 0.0;
+  for (uint q = 0; q < lbmConfigInfo.Q; ++q)
+  {
+    sum += distribution[DistributionIndex(1 - lbmConfigInfo.pingPongBufferIndex, p, q)];
+  }
+  return sum;
+}
 
 float3 Interpolate(float3 p1, float3 p2, float v1, float v2)
 {
@@ -347,40 +374,58 @@ static const int triTable[256][16] = { { -1 },
                                        { 1, 9, 0, -1 },
                                        { 8, 3, 0, -1 },
                                        { -1 } };
-/*
+
 [numthreads(8, 8, 8)]
 void main(uint3 id: SV_DispatchThreadID)
 {
-  if (id.x >= voxelizationParams.gridSize.x - 1 || id.y >= voxelizationParams.gridSize.y - 1 ||
-      id.z >= voxelizationParams.gridSize.z - 1)
+  // Note: The +1 accounts for the fact that we need to sample
+  // the outside of the voxelgrid for the marching cubes algorithm to work correctly.
+  if (any(id >= voxelizationInfo.gridSize.xyz + uint3(1, 1, 1)))
     return;
 
+  // 3D cell coordinates in the marching cubes grid. The marching cubes grid is two larger than the
+  // voxel grid in each dimension to include the outside of the voxel grid.
   int3 cell = int3(id);
 
   float values[8];
 
   for (int i = 0; i < 8; i++)
   {
-    values[i] = Sample(cell + cornerOffset[i]);
+    // If we sample outside of the voxel grid, we assume that the value is 0.0.
+    if (any(cell + cornerOffset[i] == 0) ||
+        any(cell + cornerOffset[i] > voxelizationInfo.gridSize.xyz))
+      values[i] = 0.0;
+    // If we sample inside the voxel grid, we sample the value from the voxel grid.
+    // Note: As the marching cubes grid starts outside of the voxel grid, we need to subtract 1 from
+    // the cell coordinates to sample the correct value.
+    else
+      values[i] = Sample(cell + cornerOffset[i] - uint3(1, 1, 1));
   }
 
+  // Determine the index of the cube configuration based on which corners are inside or outside the
+  // surface. This is done by setting the bits of the cubeIndex variable based on the values of the
+  // corners. If a corner is inside the surface (value < 0.5), the corresponding bit in cubeIndex is
+  // set to 1. Otherwise, it is set to 0. This covers all 256 possible configurations of the cube.
   uint cubeIndex = 0;
-
   for (int i = 0; i < 8; i++)
   {
     if (values[i] < 0.5)
       cubeIndex |= (1 << i);
   }
 
+  // For the given cube configuration, determine which edges of the cube are intersected by the
+  // surface.
   uint edges = edgeTable[cubeIndex];
 
   if (edges == 0)
     return;
 
+  // For each edge that is intersected by the surface, compute the vertex position by interpolating
+  // between the two corners of the edge based on their values.
   float3 edgeVertex[12];
-
   for (int e = 0; e < 12; e++)
   {
+    // if edge is intersected
     if (edges & (1 << e))
     {
       uint a = edgeCorners[e][0];
@@ -391,51 +436,35 @@ void main(uint3 id: SV_DispatchThreadID)
     }
   }
 
+  // For the given cube configuration, determine the triangles that need to be generated. The
+  // triTable contains the indices of the edges that form the triangles for each cube configuration.
+  // Each triangle is represented by three consecutive indices in the triTable.
   for (int i = 0; triTable[cubeIndex][i] != -1; i += 3)
   {
     uint base;
 
+    // Atomically increment the vertex counter by 3 and get the base index for the new vertices.
     InterlockedAdd(vertexCounter[0], 3, base);
 
     for (int v = 0; v < 3; v++)
     {
+      // Get the edge index for the current vertex of the triangle from the triTable.
       uint edge = triTable[cubeIndex][i + v];
 
-      float cellSize = voxelizationParams.gridMin.w;
-      float3 pos = edgeVertex[edge];
+      // Get the interpolated vertex position for the current edge from the edgeVertex array.
+      // Note: The marching cubes grid includes the outside of the voxel grid, so one cell size
+      // needs to be subtracted from the position to convert it to voxel grid coordinates.
+      float3 pos = edgeVertex[edge] - uint3(1, 1, 1);
 
-      pos.x = pos.x * cellSize + voxelizationParams.gridMin.x;
-      pos.y = pos.y * cellSize + voxelizationParams.gridMin.y;
-      pos.z = pos.z * cellSize + voxelizationParams.gridMin.z;
+      float cellSize = voxelizationInfo.gridMin.w;
+
+      // Convert the position from marching cubes grid coordinates to world coordinates.
+      pos.x = pos.x * cellSize + voxelizationInfo.gridMin.x;
+      pos.y = pos.y * cellSize + voxelizationInfo.gridMin.y;
+      pos.z = pos.z * cellSize + voxelizationInfo.gridMin.z;
 
       positions[base + v] = float4(pos, 1.0);
       normals[base + v] = float4(Gradient(int3(edgeVertex[edge])), 0.0);
     }
   }
-}
-*/
-[numthreads(8, 8, 8)]
-void main(uint3 id: SV_DispatchThreadID)
-{
-  if (id.x >= voxelizationInfo.gridSize.x || id.y >= voxelizationInfo.gridSize.y ||
-      id.z >= voxelizationInfo.gridSize.z)
-  {
-    return;
-  }
-
-  uint index = Index(id.x, id.y, id.z);
-
-  // Empty voxel
-  if (density[index] == 0)
-    return;
-
-  uint outIndex;
-
-  InterlockedAdd(vertexCounter[0], 1, outIndex);
-
-  float cellSize = voxelizationInfo.gridMin.w;
-
-  float3 voxelCenter = voxelizationInfo.gridMin.xyz + (float3(id) + 0.5) * cellSize;
-
-  positions[outIndex] = float4(voxelCenter, 1.0);
 }

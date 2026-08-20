@@ -221,6 +221,9 @@ void multipleSampleVoxel(uint3 voxelId, uint numSamples)
 void main(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID,
           uint3 dispatchThreadID: SV_DispatchThreadID, uint groupIndex: SV_GroupIndex)
 {
+  if (any(dispatchThreadID >= voxelizationParams.gridSize.xyz))
+    return;
+
   if (pushConstants.numSamples == 1)
   {
     singleSampleVoxel(dispatchThreadID);
